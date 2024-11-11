@@ -33,7 +33,7 @@ for fp in [base, base / "url_benchmark"]:
     if str(fp) not in sys.path:
         sys.path.append(str(fp))
 
-
+# WHEN PLAYING THE AGENT, IT SAVES THE COLLECTED DATA INTO THE REPLAY BUFFER (in contrast to train_offline)
 @dataclasses.dataclass
 class OnlinetrainConfig(pretrain.Config):
     # mode

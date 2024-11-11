@@ -137,6 +137,7 @@ def _update_legacy_class(obj: tp.Any, classes: tp.Sequence[tp.Type[tp.Any]]) -> 
     """
     classes = tuple(classes)
     if not isinstance(obj, classes):
+        print('inside legacy class')
         clss = {x.__name__: x for x in classes}
         cls = clss.get(obj.__class__.__name__, None)
         if cls is not None:
@@ -153,50 +154,27 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
     _update_legacy_class(ag, special)
     # we need to check against name for legacy reason when reloading old checkpoints
     if not isinstance(ag, special) or not len(workspace.replay_loader):
+        raise ValueError("legacy issue") # Nuria
         return workspace.agent.init_meta()
     if custom_reward is not None:
         try:  # if the custom reward implements a goal, return it
             goal = custom_reward.get_goal(workspace.cfg.goal_space)
             return workspace.agent.get_goal_meta(goal)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-exceptf
             pass
-        if not isinstance(workspace.agent, agents.SFSVDAgent):
-            # we cannot fully type because of the FBBDPG string check :s
-            num_steps = workspace.agent.cfg.num_inference_steps  # type: ignore
-            obs_list, reward_list = [], []
-            batch_size = 0
-            while batch_size < num_steps:
-                batch = workspace.replay_loader.sample(workspace.cfg.batch_size, custom_reward=custom_reward)
-                batch = batch.to(workspace.cfg.device)
-                obs_list.append(batch.next_goal if workspace.cfg.goal_space is not None else batch.next_obs)
-                reward_list.append(batch.reward)
-                batch_size += batch.next_obs.size(0)
-            obs, reward = torch.cat(obs_list, 0), torch.cat(reward_list, 0)  # type: ignore
-            obs_t, reward_t = obs[:num_steps], reward[:num_steps]
-            # phy = workspace.replay_loader._storage["physics"]
-            # phy = phy.reshape(-1, phy.shape[-1])
-            # back_input = "observation" if workspace.cfg.goal_space is None else "goal"
-            # obs = workspace.replay_loader._storage[back_input].reshape(phy.shape[0], -1)  # should have been next obs
-            # inds = np.random.choice(phy.shape[0], size=workspace.agent.cfg.num_inference_steps, replace=False)
-            # phy, obs = (x[inds, :] for x in (phy, obs))
-            # rewards = [[custom_reward.from_physics(p)] for p in phy]
-            # obs_t, reward_t = (torch.Tensor(x).float().to(workspace.agent.cfg.device) for x in (obs, rewards))
-            return workspace.agent.infer_meta_from_obs_and_rewards(obs_t, reward_t)
-        else:
-            assert isinstance(workspace.agent, agents.SFSVDAgent)
-            obs_list, reward_list, action_list = [], [], []
-            batch_size = 0
-            while batch_size < workspace.agent.cfg.num_inference_steps:
-                batch = workspace.replay_loader.sample(workspace.cfg.batch_size, custom_reward=custom_reward)
-                batch = batch.to(workspace.cfg.device)
-                obs_list.append(batch.goal if workspace.cfg.goal_space is not None else batch.obs)
-                action_list.append(batch.action)
-                reward_list.append(batch.reward)
-                batch_size += batch.next_obs.size(0)
-            obs, reward, action = torch.cat(obs_list, 0), torch.cat(reward_list, 0), torch.cat(action_list, 0)  # type: ignore
-            obs_t, reward_t, action_t = obs[:workspace.agent.cfg.num_inference_steps], reward[:workspace.agent.cfg.num_inference_steps],\
-                action[:workspace.agent.cfg.num_inference_steps]
-            return workspace.agent.infer_meta_from_obs_action_and_rewards(obs_t, action_t, reward_t)
+        # we cannot fully type because of the FBBDPG string check :s
+        num_steps = workspace.agent.cfg.num_inference_steps  # type: ignore
+        obs_list, reward_list = [], []
+        batch_size = 0
+        while batch_size < num_steps:
+            batch = workspace.replay_loader.sample(workspace.cfg.batch_size, custom_reward=custom_reward)
+            batch = batch.to(workspace.cfg.device)
+            obs_list.append(batch.next_goal if workspace.cfg.goal_space is not None else batch.next_obs)
+            reward_list.append(batch.reward)
+            batch_size += batch.next_obs.size(0)
+        obs, reward = torch.cat(obs_list, 0), torch.cat(reward_list, 0)  # type: ignore
+        obs_t, reward_t = obs[:num_steps], reward[:num_steps]
+        return workspace.agent.infer_meta_from_obs_and_rewards(obs_t, reward_t)
 
     if workspace.cfg.goal_space is not None:
         funcs = _goals.goals.funcs.get(workspace.cfg.goal_space, {})
@@ -337,8 +315,6 @@ class BaseWorkspace(tp.Generic[C]):
         return _goals.get_reward_function(self.cfg.custom_reward, seed)
 
     def eval_maze_goals(self) -> None:
-        if isinstance(self.agent, (agents.SFAgent, agents.SFSVDAgent, agents.NEWAPSAgent)) and len(self.replay_loader) > 0:
-            self.agent.precompute_cov(self.replay_loader)
         reward_cls = _goals.MazeMultiGoal()
         rewards = list()
         for g in reward_cls.goals:
@@ -462,7 +438,7 @@ class BaseWorkspace(tp.Generic[C]):
         fp = Path(fp)
         with fp.open('rb') as f:
             payload = torch.load(f)
-        _update_legacy_class(payload, (ReplayBuffer,))
+        _update_legacy_class(payload, (ReplayBuffer,))  # TODO: NURIA probably to be deleted
         if isinstance(payload, ReplayBuffer):  # compatibility with pure buffers pickles
             payload = {"replay_loader": payload}
         if only is not None:
@@ -478,7 +454,7 @@ class BaseWorkspace(tp.Generic[C]):
             if name == "agent":
                 self.agent.init_from(val)
             elif name == "replay_loader":
-                _update_legacy_class(val, (ReplayBuffer,))
+                _update_legacy_class(val, (ReplayBuffer,))  # TODO: NURIA probably to be deleted
                 assert isinstance(val, ReplayBuffer)
                 # pylint: disable=protected-access
                 # drop unecessary meta which could make a mess
@@ -486,6 +462,7 @@ class BaseWorkspace(tp.Generic[C]):
                 val._future = self.cfg.future
                 val._discount = self.cfg.discount
                 val._max_episodes = len(val._storage["discount"])
+                val._episodes_length = np.array([len(array) - 1 for array in val._storage["discount"]], dtype=np.int32)
                 self.replay_loader = val
             else:
                 assert hasattr(self, name)

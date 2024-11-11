@@ -439,6 +439,8 @@ class FBDDPGAgent:
         discount = batch.discount
         next_obs = next_goal = batch.next_obs
         if self.cfg.goal_space is not None:
+            if self.cfg.goal_space == 'simplified_point_mass_maze' and batch.next_goal is None:
+                batch.next_goal = batch.next_obs[:, :2]
             assert batch.next_goal is not None
             next_goal = batch.next_goal
 
@@ -451,15 +453,11 @@ class FBDDPGAgent:
         z = self.sample_z(self.cfg.batch_size, device=self.cfg.device)
         if not z.shape[-1] == self.cfg.z_dim:
             raise RuntimeError("There's something wrong with the logic here")
-        # obs = self.aug_and_encode(batch.obs)
-        # next_obs = self.aug_and_encode(batch.next_obs)
-        # if not self.cfg.update_encoder:
-        #     obs = obs.detach()
-        #     next_obs = next_obs.detach()
-
         backward_input = batch.obs
         future_goal = batch.future_obs
         if self.cfg.goal_space is not None:
+            if self.cfg.goal_space == 'simplified_point_mass_maze' and batch.goal is None:
+                batch.goal = batch.obs[:, :2]
             assert batch.goal is not None
             backward_input = batch.goal
             future_goal = batch.future_goal
@@ -501,181 +499,4 @@ class FBDDPGAgent:
                                  self.cfg.fb_target_tau)
         utils.soft_update_params(self.backward_net, self.backward_target_net,
                                  self.cfg.fb_target_tau)
-
-        # update inv cov
-        # if step % self.cfg.update_cov_every_step == 0:
-        #     logger.info("update online cov")
-        #     obs_list = list()
-        #     batch_size = 0
-        #     while batch_size < 10000:
-        #         batch = next(replay_loader)
-        #         batch = batch.to(self.cfg.device)
-        #         obs_list.append(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs)
-        #         batch_size += batch.next_obs.size(0)
-        #     obs = torch.cat(obs_list, 0)
-        #     with torch.no_grad():
-        #         B = self.backward_net(obs)
-        #     self.inv_cov = torch.inverse(self.online_cov(B))
-
         return metrics
-
-    # def update(self, replay_loader: tp.Iterator[rb.EpisodeBatch], step: int) -> tp.Dict[str, float]:
-    #     metrics: tp.Dict[str, float] = {}
-    #
-    #     if step % self.cfg.update_every_steps != 0:
-    #         return metrics
-    #
-    #     for _ in range(self.cfg.num_fb_updates):
-    #         batch = next(replay_loader)
-    #         batch = batch.to(self.cfg.device)
-    #         if self.cfg.mix_ratio > 0:
-    #             assert self.cfg.batch_size % 3 == 0
-    #             mini_batch_size = self.cfg.batch_size // 3
-    #         else:
-    #             assert self.cfg.batch_size % 2 == 0
-    #             mini_batch_size = self.cfg.batch_size // 2
-    #         idxs = list(range(mini_batch_size))
-    #         idxs_prime = list(range(mini_batch_size, 2 * mini_batch_size))
-    #
-    #         # pdb.set_trace()
-    #         obs = batch.obs[idxs]
-    #         action = batch.action[idxs]
-    #         discount = batch.discount[idxs]
-    #         next_obs = next_goal = batch.next_obs[idxs]
-    #         if self.cfg.goal_space is not None:
-    #             assert batch.next_goal is not None
-    #             next_goal = batch.next_goal[idxs]
-    #         if len(batch.meta) == 1 and batch.meta[0].shape[-1] == self.cfg.z_dim:
-    #             z = batch.meta[0][idxs]
-    #             invalid = torch.linalg.norm(z, dim=1) < 1e-15
-    #             if sum(invalid):
-    #                 z[invalid, :] = self.sample_z(sum(invalid)).to(self.cfg.device)
-    #         else:
-    #             z = self.sample_z(mini_batch_size).to(self.cfg.device)
-    #             if not z.shape[-1] == self.cfg.z_dim:
-    #                 raise RuntimeError("There's something wrong with the logic here")
-    #         # obs = self.aug_and_encode(batch.obs)
-    #         # next_obs = self.aug_and_encode(batch.next_obs)
-    #         # if not self.cfg.update_encoder:
-    #         #     obs = obs.detach()
-    #         #     next_obs = next_obs.detach()
-    #
-    #         backward_input = batch.obs
-    #         future_goal = batch.future_obs
-    #         if self.cfg.goal_space is not None:
-    #             assert batch.goal is not None
-    #             backward_input = batch.goal
-    #             future_goal = batch.future_goal
-    #
-    #         # goal = backward_input[idxs]
-    #         goal_prime = backward_input[idxs_prime]
-    #
-    #         if self.cfg.mix_ratio > 0:
-    #             mix_idxs: tp.Any = np.where(np.random.uniform(size=mini_batch_size) < self.cfg.mix_ratio)[0]
-    #             part = backward_input[2 * mini_batch_size:]
-    #             if not self.cfg.rand_weight:
-    #                 mix_z = self.backward_net(part[mix_idxs]).detach()
-    #             else:
-    #                 # generate random weight
-    #                 weight = torch.rand(size=(mix_idxs.shape[0], mini_batch_size)).to(self.cfg.device)
-    #                 weight = F.normalize(weight, dim=1)
-    #                 uniform_rdv = torch.rand(mix_idxs.shape[0], 1).to(self.cfg.device)
-    #                 weight = uniform_rdv * weight
-    #                 mix_z = torch.matmul(weight, self.backward_net(part).detach())
-    #             if self.cfg.norm_z:
-    #                 mix_z = math.sqrt(self.cfg.z_dim) * F.normalize(mix_z, dim=1)
-    #             z[mix_idxs] = mix_z
-    #
-    #         # hindsight replay
-    #         if self.cfg.future_ratio > 0:
-    #             assert future_goal is not None
-    #             future_idxs = np.where(np.random.uniform(size=mini_batch_size) < self.cfg.future_ratio)
-    #             future_goal = future_goal[idxs][future_idxs]
-    #             z[future_idxs] = self.backward_net(future_goal).detach()
-    #             goal_prime[future_idxs] = future_goal
-    #         metrics.update(self.update_fb(obs=obs, action=action, discount=discount,
-    #                                       next_obs=next_obs, next_goal=next_goal, goal_prime=goal_prime, z=z, step=step))
-    #
-    #         # update actor
-    #         metrics.update(self.update_actor(obs, z, step))
-    #
-    #         # update critic target
-    #         utils.soft_update_params(self.forward_net, self.forward_target_net,
-    #                                  self.cfg.fb_target_tau)
-    #         utils.soft_update_params(self.backward_net, self.backward_target_net,
-    #                                  self.cfg.fb_target_tau)
-    #
-    #     return metrics
-
-    # def update_fb(
-    #     self,
-    #     obs: torch.Tensor,
-    #     action: torch.Tensor,
-    #     discount: torch.Tensor,
-    #     next_obs: torch.Tensor,
-    #     next_goal: torch.Tensor,
-    #     goal_prime: torch.Tensor,
-    #     z: torch.Tensor,
-    #     step: int
-    # ) -> tp.Dict[str, float]:
-    #     metrics: tp.Dict[str, float] = {}
-    #     # compute target successor measure
-    #     with torch.no_grad():
-    #         if self.cfg.boltzmann:
-    #             dist = self.actor(next_obs, z)
-    #             next_action = dist.sample()
-    #         else:
-    #             stddev = utils.schedule(self.cfg.stddev_schedule, step)
-    #             dist = self.actor(next_obs, z, stddev)
-    #             next_action = dist.sample(clip=self.cfg.stddev_clip)
-    #         target_F1, target_F2 = self.forward_target_net(next_obs, z, next_action)  # batch x z_dim
-    #         target_B = self.backward_target_net(goal_prime)  # batch x z_dim
-    #         target_M1 = torch.einsum('sd, td -> st', target_F1, target_B)  # batch x batch
-    #         target_M2 = torch.einsum('sd, td -> st', target_F2, target_B)  # batch x batch
-    #         target_M = torch.min(target_M1, target_M2)
-    #
-    #     # compute FB loss
-    #     F1, F2 = self.forward_net(obs, z, action)
-    #     B = self.backward_net(next_goal)
-    #     B_prime = self.backward_net(goal_prime)
-    #     M1_diag = torch.einsum('sd, sd -> s', F1, B)  # batch
-    #     M2_diag = torch.einsum('sd, sd -> s', F2, B)  # batch
-    #     M1 = torch.einsum('sd, td -> st', F1, B_prime)  # batch x batch
-    #     M2 = torch.einsum('sd, td -> st', F2, B_prime)  # batch x batch
-    #     fb_loss = 0.5 * (M1 - discount * target_M).pow(2).mean() - M1_diag.mean()
-    #     fb_loss += 0.5 * (M2 - discount * target_M).pow(2).mean() - M2_diag.mean()
-    #
-    #     # ORTHONORMALITY LOSS FOR BACKWARD EMBEDDING
-    #
-    #     B_B_prime = torch.matmul(B, B_prime.T)
-    #     B_diag = torch.einsum('sd, sd -> s', B, B)
-    #     B_prime_diag = torch.einsum('sd, sd -> s', B_prime, B_prime)
-    #     orth_loss = B_B_prime.pow(2).mean() - (B_diag.mean() + B_prime_diag.mean())
-    #     fb_loss += self.cfg.ortho_coef * orth_loss
-    #
-    #     if self.cfg.use_tb or self.cfg.use_wandb or self.cfg.use_hiplog:
-    #         metrics['target_M'] = target_M.mean().item()
-    #         metrics['M1'] = M1.mean().item()
-    #         metrics['F1'] = F1.mean().item()
-    #         metrics['B'] = B.mean().item()
-    #         metrics['B_norm'] = torch.norm(B, dim=-1).mean().item()
-    #         metrics['z_norm'] = torch.norm(z, dim=-1).mean().item()
-    #         metrics['fb_loss'] = fb_loss.item()
-    #         metrics['orth_loss'] = orth_loss.item()
-    #         eye_diff = torch.matmul(B.T, B) / B.shape[0] - torch.eye(B.shape[1], device=B.device)
-    #         metrics['orth_linf'] = torch.max(torch.abs(eye_diff)).item()
-    #         metrics['orth_l2'] = eye_diff.norm().item() / math.sqrt(B.shape[1])
-    #         if isinstance(self.fb_opt, torch.optim.Adam):
-    #             metrics["fb_opt_lr"] = self.fb_opt.param_groups[0]["lr"]
-    #         if self.cfg.goal_space in ["simplified_walker", "simplified_quadruped"]:
-    #             metrics['max_velocity'] = goal_prime[:, -1].max().item()
-    #
-    #     # optimize FB
-    #     if self.encoder_opt is not None:
-    #         self.encoder_opt.zero_grad(set_to_none=True)
-    #     self.fb_opt.zero_grad(set_to_none=True)
-    #     fb_loss.backward()
-    #     self.fb_opt.step()
-    #     if self.encoder_opt is not None:
-    #         self.encoder_opt.step()
-    #     return metrics

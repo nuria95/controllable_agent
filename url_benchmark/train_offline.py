@@ -2,7 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pdb  # pylint: disable=unused-import
 import logging
 import dataclasses
@@ -140,7 +142,7 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
     #     self.agent.init_from(payload['agent'])
 
 
-@hydra.main(config_path='.', config_name='base_config')
+@hydra.main(config_path='.', config_name='base_config', version_base="1.1")
 def main(cfg: omgcf.DictConfig) -> None:
     workspace = Workspace(cfg)  # type: ignore
     # for _ in range(10):
