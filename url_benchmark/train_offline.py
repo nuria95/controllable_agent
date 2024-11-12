@@ -50,6 +50,7 @@ class OfflineConfig(pretrain.Config):
     # misc
     experiment: str = "offline"
     reward_free: bool = False
+    visualize_data: bool = False
 
 
 ConfigStore.instance().store(name="workspace_config", node=OfflineConfig)
@@ -70,12 +71,8 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         if self.cfg.load_replay_buffer is not None:
             print("loading Replay from %s", self.cfg.load_replay_buffer)
             self.load_checkpoint(self.cfg.load_replay_buffer, only=["replay_loader"])
-            # with open(self.cfg.load_replay_buffer, 'rb') as f:
-            #     content = torch.load(f)
-            #     if isinstance(content, dict):
-            #         content = content["replay_loader"]
-            #     # assert isinstance(content, ReplayBuffer)
-            #     self.replay_loader = content
+            if self.cfg.visualize_data: self.visualize_data()
+
         else:
             relabeled_replay_file_path = replay_dir / f"../relabeled_replay_{cfg.task}_{cfg.replay_buffer_episodes}.pt"
             if relabeled_replay_file_path.exists():
@@ -135,11 +132,25 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
         self.finalize()
 
-    # def load_checkpoint(self, fp: tp.Union[Path, str]) -> None:
-    #     fp = Path(fp)
-    #     with fp.open('rb') as f:
-    #         payload = torch.load(f)
-    #     self.agent.init_from(payload['agent'])
+    def visualize_data(self):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        xy = self.replay_loader._storage['observation'][:,:,:2] #ep, traj_length, 2
+        for i in range(0, len(xy), 20):
+            # Extract x and y coordinates for the i-th trial
+            x_coords = xy[i,0:-1:20, 0]
+            y_coords = xy[i, 0:-1:20, 1]
+            # Plot the line connecting (x, y) coordinates for this trial
+            plt.plot(x_coords, y_coords, marker='o', markersize=3)
+        filename = '/'.join(self.cfg.load_replay_buffer.split('/')[-3:-1]) + '.png'
+        filename_dir = f'/home/nuria/phd/controllable_agent/figs/{filename}'
+        save_dir = os.path.dirname(filename_dir)
+        os.makedirs(save_dir, exist_ok = True)
+        plt.savefig(filename_dir, dpi=100)
+        print('Saved dataset figure in ', filename_dir)
+        exit()
+
+        
 
 
 @hydra.main(config_path='.', config_name='base_config', version_base="1.1")
