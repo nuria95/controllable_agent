@@ -123,39 +123,10 @@ def make_agent(
 C = tp.TypeVar("C", bound=Config)
 
 
-def _update_legacy_class(obj: tp.Any, classes: tp.Sequence[tp.Type[tp.Any]]) -> tp.Any:
-    """Updates a legacy class (eg: agent.FBDDPGAgent) to the new
-    class (url_benchmark.agent.FBDDPGAgent)
-
-    Parameters
-    ----------
-    obj: Any
-        Object to update
-    classes: Types
-        Possible classes to update the object to. If current name is one of the classes
-        name, the object class will be remapped to it.
-    """
-    classes = tuple(classes)
-    if not isinstance(obj, classes):
-        print('inside legacy class')
-        clss = {x.__name__: x for x in classes}
-        cls = clss.get(obj.__class__.__name__, None)
-        if cls is not None:
-            logger.warning(f"Promoting legacy object {obj.__class__} to {cls}")
-            obj.__class__ = cls
-
-
 def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goals.BaseReward] = None) -> agents.MetaDict:
     if workspace.domain == "grid":
         assert isinstance(workspace.agent, agents.DiscreteFBAgent)
         return workspace.agent.get_goal_meta(workspace.eval_env.get_goal_obs())
-    special = (agents.FBDDPGAgent, agents.SFAgent, agents.SFSVDAgent, agents.APSAgent, agents.NEWAPSAgent, agents.GoalSMAgent, agents.UVFAgent)
-    ag = workspace.agent
-    _update_legacy_class(ag, special)
-    # we need to check against name for legacy reason when reloading old checkpoints
-    if not isinstance(ag, special) or not len(workspace.replay_loader):
-        raise ValueError("legacy issue") # Nuria
-        return workspace.agent.init_meta()
     if custom_reward is not None:
         try:  # if the custom reward implements a goal, return it
             goal = custom_reward.get_goal(workspace.cfg.goal_space)
@@ -200,13 +171,6 @@ class BaseWorkspace(tp.Generic[C]):
                 cfg.device = "cpu"
                 cfg.agent.device = "cpu"
         self.device = torch.device(cfg.device)
-        # goal_spec: tp.Optional[specs.Array] = None
-        # if cfg.goal_space is not None:
-        #     g = _goals.goals.funcs[cfg.goal_space][cfg.task]()
-        #     goal_spec = specs.Array((len(g),), np.float32, 'goal')
-
-        # create envs
-        # task = PRIMAL_TASKS[self.domain]
         task = cfg.task
         if task.startswith('point_mass_maze'):
             self.domain = 'point_mass_maze'
@@ -245,33 +209,12 @@ class BaseWorkspace(tp.Generic[C]):
                 del self.logger.hiplog._content[rm]
             self.logger.hiplog(observation_size=np.prod(self.train_env.observation_spec().shape))
 
-        # # create replay buffer
-        # self._data_specs: tp.List[tp.Any] = [self.train_env.observation_spec(),
-        #                                      self.train_env.action_spec(), ]
         if cfg.goal_space is not None:
             if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
                 raise ValueError(f"Unregistered goal space {cfg.goal_space} for domain {self.domain}")
-        #     g = _goals.goals.funcs[cfg.goal_space][cfg.task]()
-        #     self._data_specs.append(specs.Array((len(g),), np.float32, 'goal'))
-        # self._data_specs.extend([specs.Array((1,), np.float32, 'reward'),
-        #                          specs.Array((1,), np.float32, 'discount')])
 
         self.replay_loader = ReplayBuffer(max_episodes=cfg.replay_buffer_episodes, discount=cfg.discount, future=cfg.future)
 
-        # # create data storage
-        # self.replay_storage = ReplayBufferStorage(data_specs, meta_specs,
-        #                                           self.work_dir / 'buffer')
-        #
-        # # create replay buffer
-        # self.replay_loader = make_replay_loader(self.replay_storage,
-        #                                         cfg.replay_buffer_size,
-        #                                         cfg.batch_size,
-        #                                         cfg.replay_buffer_num_workers,
-        #                                         False, True, cfg.nstep, cfg.discount)
-
-        # create video recorders
-        # cam_id = 2 if 'quadruped' not in self.domain else 1
-        # cam_id = 1  # centered on subject
         cam_id = 0 if 'quadruped' not in self.domain else 2
 
         self.video_recorder = VideoRecorder(self.work_dir if cfg.save_video else None,
@@ -438,7 +381,6 @@ class BaseWorkspace(tp.Generic[C]):
         fp = Path(fp)
         with fp.open('rb') as f:
             payload = torch.load(f)
-        _update_legacy_class(payload, (ReplayBuffer,))  # TODO: NURIA probably to be deleted
         if isinstance(payload, ReplayBuffer):  # compatibility with pure buffers pickles
             payload = {"replay_loader": payload}
         if only is not None:
@@ -454,7 +396,6 @@ class BaseWorkspace(tp.Generic[C]):
             if name == "agent":
                 self.agent.init_from(val)
             elif name == "replay_loader":
-                _update_legacy_class(val, (ReplayBuffer,))  # TODO: NURIA probably to be deleted
                 assert isinstance(val, ReplayBuffer)
                 # pylint: disable=protected-access
                 # drop unecessary meta which could make a mess
@@ -541,9 +482,6 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                                       self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
-        # if self.cfg.custom_reward is not None:
-        #     raise NotImplementedError("Custom reward not implemented in pretrain.py train loop (see anytrain.py)")
-
         episode_step, episode_reward, z_correl = 0, 0.0, 0.0
         time_step = self.train_env.reset()
         meta = self._init_meta()
