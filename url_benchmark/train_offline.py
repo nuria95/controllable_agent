@@ -19,8 +19,8 @@ import torch
 
 from url_benchmark import goals as _goals
 from url_benchmark import utils
-from url_benchmark.in_memory_replay_buffer import ReplayBuffer # pylint: disable=unused-import
-from url_benchmark.replay_buffer import EpisodeBatch # pylint: disable=unused-import
+from url_benchmark.in_memory_replay_buffer import ReplayBuffer  # pylint: disable=unused-import
+from url_benchmark.replay_buffer import EpisodeBatch  # pylint: disable=unused-import
 from url_benchmark import agent as agents
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ for fp in [base, base / "url_benchmark"]:
     assert fp.exists()
     if str(fp) not in sys.path:
         sys.path.append(str(fp))
+
 
 @dataclasses.dataclass
 class OfflineConfig(pretrain.Config):
@@ -95,7 +96,6 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
 
         if isinstance(self.agent, agents.GoalTD3Agent) and self.agent.cfg.fb_reward:
             self.agent.precompute_cov(self.replay_loader)
-            
 
     def train(self):
         train_until_step = utils.Until(self.cfg.num_grad_steps)
@@ -134,8 +134,7 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
 
     def visualize_data(self):
         import matplotlib.pyplot as plt
-        import numpy as np
-        xy = self.replay_loader._storage['observation'][:,:,:2] #ep, traj_length, 2
+        xy = self.replay_loader._storage['observation'][:, :, :2]  # ep, traj_length, 2
         for i in range(0, len(xy), 20):
             # Extract x and y coordinates for the i-th trial
             x_coords = xy[i,0:-1:20, 0]
@@ -145,12 +144,10 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         filename = '/'.join(self.cfg.load_replay_buffer.split('/')[-3:-1]) + '.png'
         filename_dir = f'/home/nuria/phd/controllable_agent/figs/{filename}'
         save_dir = os.path.dirname(filename_dir)
-        os.makedirs(save_dir, exist_ok = True)
+        os.makedirs(save_dir, exist_ok=True)
         plt.savefig(filename_dir, dpi=100)
         print('Saved dataset figure in ', filename_dir)
         exit()
-
-        
 
 
 @hydra.main(config_path='.', config_name='base_config', version_base="1.1")
