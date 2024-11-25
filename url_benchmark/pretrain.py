@@ -11,6 +11,7 @@ import dataclasses
 import typing as tp
 import warnings
 from pathlib import Path
+import sys
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -19,6 +20,7 @@ os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 # if the default egl does not work, you may want to try:
 # export MUJOCO_GL=glfw
 os.environ['MUJOCO_GL'] = os.environ.get('MUJOCO_GL', 'egl')
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import hydra
 from hydra.core.config_store import ConfigStore
@@ -83,6 +85,7 @@ class Config:
     replay_buffer_episodes: int = 5000
     update_encoder: bool = True
     batch_size: int = omgcf.II("agent.batch_size")
+    uncertainty: bool = False
 
 
 @dataclasses.dataclass
@@ -180,6 +183,7 @@ class BaseWorkspace(tp.Generic[C]):
         self.train_env = self._make_env()
         self.eval_env = self._make_env()
         # create agent
+        cfg.agent.uncertainty = cfg.uncertainty
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),
                                 self.train_env.action_spec(),
@@ -534,11 +538,10 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                                 self.global_frame)
                 if self.cfg.custom_reward == "maze_multi_goal":
                     self.eval_maze_goals()
-                # elif self.domain == "grid":
-                #     self.eval_grid_goals()
                 else:
                     self.eval()
-            meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader)
+            meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
+                                          uncertainty=self.cfg.uncertainty, obs=time_step.observation)
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
                 action = self.agent.act(time_step.observation,

@@ -11,6 +11,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from url_benchmark import utils
+from copy import deepcopy
 
 
 class OnlineCov(nn.Module):
@@ -151,6 +152,68 @@ class DiagGaussianActor(nn.Module):
         return dist
 
 
+class EnsembleMLP(nn.Module):
+    # internal model should only have init and forward meths.
+
+    def __init__(self, base_model, n_ensemble):
+        super().__init__()
+        # needs to be a nn.module list otw we cannot do ensemble.state_dict or optimzie over its params!
+        ensemble = nn.ModuleList([deepcopy(base_model) for _ in range(n_ensemble)])
+        # let’s combine the states of the model together by stacking each
+        # parameter. For example, ``model[i].fc1.weight`` has shape ``[784, 128]``; we are
+        # going to stack the ``.fc1.weight`` of each of the 10 models to produce a big
+        # weight of shape ``[10, 784, 128]``.
+        # PyTorch offers the ``torch.func.stack_module_state`` convenience function to do
+        # this: # --> go from list of dicts to dict of lists
+        #  stacked parameters are optimizable (i.e. they are new leaf nodes in the
+        # autograd history that are UNRELATED to the original parameters and can be passed
+        # directly to an optimizer).
+        # buffers accounts for all non_trainable_params, we wont need it
+        self.ensemble_params, buffers = torch.func.stack_module_state(ensemble)
+        # Construct a "stateless" version of one of the models. It is "stateless" in
+        # the sense that the parameters are meta Tensors and do not have storage, we do this by to."meta"
+        # we also assign base_model as tuple  to avoid copying the parameters (avoid registration), otw, EnsembleMLP
+        # object, will also have self.base_model params, additionally to the self.ensemble_params above.
+        
+        print('*** \n return  to tuple!!****')
+        # self.base_model = (deepcopy(ensemble[0]).to("meta"),)  # used as a fct
+        
+        base_model = deepcopy(ensemble[0])
+        self.base_model = base_model.to('meta')
+        # self.device = base_model.device
+        # self.to(self.device)
+
+    # # IMPORTANT! model.parameters() of an nn.Module class calls named_parameters we need to override it
+    def named_parameters(
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+    ):
+        # need to override named_parameters st when we pass the parameters to the optimizer,
+        #  we will pass all the ensemble_params
+        return self.ensemble_params.items()
+
+    # @torch.compile()
+    def forward(self, x: tuple):  # x =(obs: torch.tensor,  z: torch.tensor, action: torch.tensor)
+        """
+        Expects inputs obs, z, and action to have shape (ensemble_size, B, feature_dim),
+        where ensemble_size is the number of ensemble members, B is the batch size, and
+        feature_dim is the input dimensionality of each component.
+        Returns a tuple of outputs (F1, F2) from all ensemble members.
+        """
+        def fmodel(params, buffers, x):
+            return torch.func.functional_call(self.base_model, (params, buffers), (x,))
+
+
+        # vmap(func) returns a new function that maps func over some dimensions of the inputs.
+        # in this case func is fmodel, that has as inputs (params, buffers, x).
+        # so we want to map over params (which are each of the ensemble params), buffers is empty, and we don't want to map
+        # over x (unless we want different x for different ensemble members) hence:  in_dims = (0,0, None)
+        # By using ``None``, we tell ``vmap`` we want the same minibatch to apply for all of
+        # the num_ensemble models        
+        ensemble_out = torch.vmap(fmodel, in_dims=(0, 0, None))(self.ensemble_params, {}, x)
+
+        return ensemble_out
+
+
 class ForwardMap(nn.Module):
     """ forward representation class"""
 
@@ -183,7 +246,9 @@ class ForwardMap(nn.Module):
 
         self.apply(utils.weight_init)
 
-    def forward(self, obs, z, action):
+    def forward(self, x: tuple):  #obs, z, action)
+        assert isinstance(x, tuple), "x must be a tuple: (obs, z, action)"
+        obs, z, action = x
         assert z.shape[-1] == self.z_dim
 
         if self.preprocess:
