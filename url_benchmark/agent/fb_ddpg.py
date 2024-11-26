@@ -11,7 +11,6 @@ import logging
 import dataclasses
 from collections import OrderedDict
 import typing as tp
-
 import numpy as np
 import torch
 from torch import nn
@@ -98,6 +97,7 @@ class FBDDPGAgent:
         assert len(cfg.action_shape) == 1
         self.action_dim = cfg.action_shape[0]
         self.solved_meta: tp.Any = None
+        self.n_ensemble = 5
 
         # models
         if cfg.obs_type == 'pixels':
@@ -126,7 +126,7 @@ class FBDDPGAgent:
         forward_net = ForwardMap(self.obs_dim, cfg.z_dim, self.action_dim,
                                  cfg.feature_dim, cfg.hidden_dim,
                                  preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
-        self.forward_net = EnsembleMLP(forward_net, n_ensemble=5) if cfg.uncertainty else forward_net
+        self.forward_net = EnsembleMLP(forward_net, n_ensemble=self.n_ensemble) if cfg.uncertainty else forward_net
         if cfg.debug:
             self.backward_net: nn.Module = IdentityMap().to(cfg.device)
             self.backward_target_net: nn.Module = IdentityMap().to(cfg.device)
@@ -328,18 +328,19 @@ class FBDDPGAgent:
                 stddev = utils.schedule(self.cfg.stddev_schedule, step)
                 dist = self.actor(next_obs, z, stddev)
                 next_action = dist.sample(clip=self.cfg.stddev_clip)
+            # target_F1, target_F2 = torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0'), torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0') #self.forward_target_net((next_obs, z, next_action))  # batch x z_dim
             target_F1, target_F2 = self.forward_target_net((next_obs, z, next_action))  # batch x z_dim
             target_B = self.backward_target_net(next_goal)  # batch x z_dim
             if not self.cfg.uncertainty:
                 target_M1 = torch.einsum('sd, td -> st', target_F1, target_B)  # batch x batch
                 target_M2 = torch.einsum('sd, td -> st', target_F2, target_B)  # batch x batch
             else:
-                target_M1 = torch.einsum('esd, ...td -> est', target_F1, target_B)  # e x batch x batch
-                target_M2 = torch.einsum('esd, ...td -> est', target_F2, target_B)  # e x batch x batch
+                target_M1 = torch.einsum('esd, ...td -> est', target_F1, target_B)  # e x batch x batch torch.ones((self.n_ensemble, 1024, 1024), device = target_F1.device) #
+                target_M2 = torch.einsum('esd, ...td -> est', target_F2, target_B)  # e x batch x batch torch.ones((self.n_ensemble, 1024, 1024), device = target_F1.device) #
             target_M = torch.min(target_M1, target_M2)
-        
         # TODO Should I sample different batches for every different F ensemble?
         # compute FB loss
+        # F1, F2 = torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0'), torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0') #self.forward_net((obs, z, action))  # batch x z_dim
         F1, F2 = self.forward_net((obs, z, action))  # batch x z_dim
         B = self.backward_net(next_goal)  # batch x z_dim
         if not self.cfg.uncertainty:
@@ -354,16 +355,19 @@ class FBDDPGAgent:
             M2 = torch.einsum('esd, ...td -> est', F2, B)  # e x batch x batch
             I = torch.eye(*M1.size()[1:], device=M1.device)
             off_diag = ~I.bool()
-            # get indices for the first dimension of the M ensemble matrix
+            # # get indices for the first dimension of the M ensemble matrix
             E_indices = torch.arange(M1.shape[0]).unsqueeze(-1).unsqueeze(-1)  # (e, 1, 1)
             # compute the offidagonal term for each member averaging over batch dim, and summing over E and over M1 and M2
+            # this one seems to be quite costly
             fb_offdiag: tp.Any = 0.5 * sum(sum((M - discount * target_M)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2])) 
+            # fb_offdiag1: tp.Any = (M1 - discount * target_M)[E_indices, off_diag].pow(2).mean(-1) # e x 1
+            # fb_offdiag2: tp.Any = (M2 - discount * target_M)[E_indices, off_diag].pow(2).mean(-1)
+            # fb_offdiag = 0.5 * (fb_offdiag1 + fb_offdiag2).sum()
             # M.diagonal(dim1=-2, dim2=-1) returns diagonals over every ensemble so size is: E x batch
             # then we average over B and sum over E and over M1 and M2
             fb_diag: tp.Any = -sum(sum(M.diagonal(dim1=-2, dim2=-1).mean(-1) for M in [M1, M2]))
         fb_loss = fb_offdiag + fb_diag
         # Q LOSS
-
         if self.cfg.q_loss: # TODO This is not updated with curiosity
             with torch.no_grad():
                 next_Q1, nextQ2 = [torch.einsum('sd, sd -> s', target_Fi, z) for target_Fi in [target_F1, target_F2]]
@@ -435,8 +439,14 @@ class FBDDPGAgent:
 
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         F1, F2 = self.forward_net((obs, z, action))
-        Q1 = torch.einsum('sd, sd -> s', F1, z)
-        Q2 = torch.einsum('sd, sd -> s', F2, z)
+        
+        if self.cfg.uncertainty:
+            # TODO: Average over ensembles?
+            Q1 = torch.einsum('esd, ...sd -> es', F1, z).mean(0)  # the broadcasting ... (for the ensemble dim) is not needed. remove?
+            Q2 = torch.einsum('esd, ...sd -> es', F2, z).mean(0)
+        else:
+            Q1 = torch.einsum('sd, sd -> s', F1, z)
+            Q2 = torch.einsum('sd, sd -> s', F2, z)
         if self.cfg.additional_metric:
             q1_success = Q1 > Q2
         Q = torch.min(Q1, Q2)
