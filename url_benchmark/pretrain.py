@@ -202,17 +202,6 @@ class BaseWorkspace(tp.Generic[C]):
             ])
             wandb.init(project="controllable_agent", group=cfg.agent.name, name=exp_name,  # mode="disabled",
                        config=omgcf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))  # type: ignore
-
-        if cfg.use_hiplog:
-            # record config now that it is filled
-            parts = ("snapshot", "_type", "_shape", "num_", "save_", "frame", "device", "use_tb", "use_wandb")
-            skipped = [x for x in cfg if any(y in x for y in parts)]  # type: ignore
-            self.logger.hiplog.flattened({x: y for x, y in cfg.items() if x not in skipped})  # type: ignore
-            self.logger.hiplog(workdir=self.work_dir.stem)
-            for rm in ("agent/use_tb", "agent/use_wandb", "agent/device"):
-                del self.logger.hiplog._content[rm]
-            self.logger.hiplog(observation_size=np.prod(self.train_env.observation_spec().shape))
-
         if cfg.goal_space is not None:
             if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
                 raise ValueError(f"Unregistered goal space {cfg.goal_space} for domain {self.domain}")
@@ -517,9 +506,6 @@ class Workspace(BaseWorkspace[PretrainConfig]):
 
                         for key, val in physics_agg.dump():
                             log(key, val)
-                if self.cfg.use_hiplog and self.logger.hiplog.content:
-                    self.logger.hiplog.write()
-
                 # reset env
                 time_step = self.train_env.reset()
                 meta = self._init_meta()
@@ -551,9 +537,6 @@ class Workspace(BaseWorkspace[PretrainConfig]):
 
             # try to update the agent
             if not seed_until_step(self.global_step):
-                # TODO: reward_free should be handled in the agent update itself !
-                # TODO: the commented code below raises incompatible type "Generator[EpisodeBatch[ndarray[Any, Any]], None, None]"; expected "ReplayBuffer"
-                # replay = (x.with_no_reward() if self.cfg.reward_free else x for x in self.replay_loader)
                 if isinstance(self.agent, agents.GoalTD3Agent) and isinstance(self.reward_cls, _goals.MazeMultiGoal):
                     metrics = self.agent.update(self.replay_loader, self.global_step, self.reward_cls)
                 else:

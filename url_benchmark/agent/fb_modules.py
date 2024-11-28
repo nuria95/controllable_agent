@@ -175,7 +175,7 @@ class EnsembleMLP(nn.Module):
         # we also assign base_model as tuple  to avoid copying the parameters (avoid registration), otw, EnsembleMLP
         # object, will also have self.base_model params, additionally to the self.ensemble_params above.
         
-        print('*** \n return  to tuple!!****')
+        # TODO: Didnt' we need base_model to be a tuple?
         # self.base_model = (deepcopy(ensemble[0]).to("meta"),)  # used as a fct
         
         base_model = deepcopy(ensemble[0])

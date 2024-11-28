@@ -359,9 +359,10 @@ class FBDDPGAgent:
             E_indices = torch.arange(M1.shape[0]).unsqueeze(-1).unsqueeze(-1)  # (e, 1, 1)
             # compute the offidagonal term for each member averaging over batch dim, and summing over E and over M1 and M2
             # this one seems to be quite costly
-            fb_offdiag: tp.Any = 0.5 * sum(sum((M - discount * target_M)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2])) 
-            # fb_offdiag1: tp.Any = (M1 - discount * target_M)[E_indices, off_diag].pow(2).mean(-1) # e x 1
-            # fb_offdiag2: tp.Any = (M2 - discount * target_M)[E_indices, off_diag].pow(2).mean(-1)
+            scaled_T = discount * target_M
+            fb_offdiag: tp.Any = 0.5 * sum(sum((M - scaled_T)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2])) 
+            # fb_offdiag1: tp.Any = (M1 - scaled_T)[E_indices, off_diag].pow(2).mean(-1) # e x 1
+            # fb_offdiag2: tp.Any = (M2 - scaled_T)[E_indices, off_diag].pow(2).mean(-1)
             # fb_offdiag = 0.5 * (fb_offdiag1 + fb_offdiag2).sum()
             # M.diagonal(dim1=-2, dim2=-1) returns diagonals over every ensemble so size is: E x batch
             # then we average over B and sum over E and over M1 and M2
