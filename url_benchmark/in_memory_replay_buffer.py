@@ -76,7 +76,7 @@ class ReplayBuffer:
         self._current_episode: tp.Dict[str, tp.List[np.ndarray]] = collections.defaultdict(list)
         self._idx = 0
         self._full = False
-        self._num_transitions = 0
+        # self._num_transitions = 0
         self._storage: tp.Dict[str, np.ndarray] = collections.defaultdict()
         self._collected_episodes = 0
         self._batch_names = set(field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
@@ -214,6 +214,17 @@ class ReplayBuffer:
             self._storage["reward"][ep_idx] = reward
         self._max_episodes = len(self._storage["physics"])
         self._full = True
+
+    def prefill(self, storage) -> None:  # TODO: fix this. Out of RAM Issues
+        dtype = np.float32
+        # Create storage with desired size and prefilled with storage values
+        self._storage: tp.Dict[str, np.ndarray] = collections.defaultdict()
+        for name, values in storage.items():
+            _shape = values.shape
+            if self._max_episode_length:
+                _shape = (self._max_episode_length,) + values.shape[1:]
+            self._storage[name] = np.empty((self._max_episodes,) + _shape, dtype=dtype)
+            self._storage[name][:len(values)] = values
 
     # def __iter__(self) -> ReplayBufferIterable:
     #     ''' Returns the Iterator object '''

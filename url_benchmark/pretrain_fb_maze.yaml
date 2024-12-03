@@ -9,10 +9,9 @@ task: point_mass_maze_reach_bottom_right
 custom_reward: maze_multi_goal
 goal_space: simplified_point_mass_maze
 uncertainty: False
-load_replay_buffer: /home/nuria/phd/controllable_agent/datasets/point_mass_maze/proto/replay.pt
-num_seed_frames: 0
 eval_every_frames: 100000
 use_wandb: true
+warmup: false
 
 hydra:
   run:

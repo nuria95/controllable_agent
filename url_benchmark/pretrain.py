@@ -86,6 +86,10 @@ class Config:
     update_encoder: bool = True
     batch_size: int = omgcf.II("agent.batch_size")
     uncertainty: bool = False
+    update_every_steps: int = 1
+    num_agent_updates: int = 1
+    warmup: bool = True
+    pretrain_update_steps: int = 1000
 
 
 @dataclasses.dataclass
@@ -218,6 +222,7 @@ class BaseWorkspace(tp.Generic[C]):
         self.global_episode = 0
         self.eval_rewards_history: tp.List[float] = []
         self._checkpoint_filepath = self.work_dir / "models" / "latest.pt"
+        # This is for continuing training in case workdir is the same
         if self._checkpoint_filepath.exists():
             self.load_checkpoint(self._checkpoint_filepath)
         elif cfg.load_model is not None:
@@ -395,9 +400,16 @@ class BaseWorkspace(tp.Generic[C]):
                 val._current_episode.clear()  # make sure we can start over
                 val._future = self.cfg.future
                 val._discount = self.cfg.discount
-                val._max_episodes = len(val._storage["discount"])
+                # val._max_episodes = len(val._storage["discount"])
+                val._idx = len(val._storage["discount"]) % self.cfg.replay_buffer_episodes
+                val._full = val._idx == 0
+                val._max_episodes = self.cfg.replay_buffer_episodes
                 val._episodes_length = np.array([len(array) - 1 for array in val._storage["discount"]], dtype=np.int32)
                 self.replay_loader = val
+                # TODO:  This leads to out of RAM for now (to be fixed)
+                if not self.replay_loader._full:  # if buffer is not full we need to recreate the storage
+                    self.replay_loader.prefill(val._storage)
+                
             else:
                 assert hasattr(self, name)
                 setattr(self, name, val)
@@ -457,6 +469,10 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                     self.replay_loader = self.replay_storage
                 else:
                     self.load_checkpoint(cfg.load_replay_buffer, only=["replay_loader"])
+                if not cfg.warmup:
+                    print('\nNot warming up when loading a replay buffer!!!\n')
+            else:
+                assert not cfg.warmup, "Trying to warmup without a preloaded replay buffer"
 
     def _init_meta(self):
         if isinstance(self.agent, agents.GoalTD3Agent) and isinstance(self.reward_cls, _goals.MazeMultiGoal):
@@ -475,6 +491,8 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                                       self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
+        update_every_step = utils.Every(self.agent.cfg.update_every_steps,
+                                        self.cfg.action_repeat)
         episode_step, episode_reward, z_correl = 0, 0.0, 0.0
         time_step = self.train_env.reset()
         meta = self._init_meta()
@@ -484,6 +502,17 @@ class Workspace(BaseWorkspace[PretrainConfig]):
         physics_agg = dmc.PhysicsAggregator()
 
         while train_until_step(self.global_step):
+            
+            # try to update the agent
+            if not seed_until_step(self.global_step) and update_every_step(self.global_step):
+                if self.global_step == 0 and self.cfg.warmup:
+                    print("Pretraining...")
+                    for _ in range(self.cfg.pretrain_update_steps):
+                        metrics = self.agent.update(self.replay_loader, self.global_step)
+                    print('\nPretraining done\n')
+                for _ in range(self.cfg.num_agent_updates):
+                    metrics = self.agent.update(self.replay_loader, self.global_step)
+                    self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
             if time_step.last():
                 self.global_episode += 1
@@ -524,6 +553,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                                 self.global_frame)
                 if self.cfg.custom_reward == "maze_multi_goal":
                     self.eval_maze_goals()
+                    # pass
                 else:
                     self.eval()
             meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
@@ -534,14 +564,6 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                                         meta,
                                         self.global_step,
                                         eval_mode=False)
-
-            # try to update the agent
-            if not seed_until_step(self.global_step):
-                if isinstance(self.agent, agents.GoalTD3Agent) and isinstance(self.reward_cls, _goals.MazeMultiGoal):
-                    metrics = self.agent.update(self.replay_loader, self.global_step, self.reward_cls)
-                else:
-                    metrics = self.agent.update(self.replay_loader, self.global_step)
-                self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
             # take env step
             time_step = self.train_env.step(action)
