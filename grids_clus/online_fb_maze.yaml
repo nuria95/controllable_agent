@@ -5,10 +5,12 @@ results_dir: /cluster/home/nuriaa/controllable_agent/results_clus
 git_branch: main
 git_commit: null
 script_path: url_benchmark/pretrain.py
+pre_script: cluster_setup.sh
 cluster_requirements:
   cpus: 10
-  ram: 16000 #MB. Equivalent to mem_per_cpu times cpus
+  ram: 32000 #MB. Equivalent to mem_per_cpu times cpus
   gpus: 1
+  disk: 10G
   time: 12:00:00
 default_params: url_benchmark/pretrain_fb_maze.yaml
 grid:
