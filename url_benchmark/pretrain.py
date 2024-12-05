@@ -210,7 +210,7 @@ class BaseWorkspace(tp.Generic[C]):
                 cfg.experiment, cfg.agent.name, self.domain, str(cfg.id)
             ])
             wandb.init(project="controllable_agent", group=cfg.experiment, name=exp_name,  # mode="disabled",
-                       config=omgcf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))  # type: ignore
+                       config=omgcf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True), dir=self.work_dir)  # type: ignore
         if cfg.goal_space is not None:
             if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
                 raise ValueError(f"Unregistered goal space {cfg.goal_space} for domain {self.domain}")
