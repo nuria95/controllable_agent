@@ -12,6 +12,8 @@ uncertainty: False
 eval_every_frames: 100000
 use_wandb: true
 warmup: false
+seed: 0
+expermient: dd
 
 hydra:
   run:
