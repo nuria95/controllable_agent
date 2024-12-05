@@ -258,6 +258,7 @@ class FBDDPGAgent:
         uncertain_z = z[idxs].cpu().numpy()  # take the z with the highest epistemic uncertainty
         meta = OrderedDict()
         meta['z'] = uncertain_z
+        meta['disagr'] = epistemic_std1.std().item()
         return meta
 
     # pylint: disable=unused-argument
@@ -428,6 +429,17 @@ class FBDDPGAgent:
             self.encoder_opt.step()
         return metrics
 
+    @torch.compile
+    def diag_fcts(self, M1, M2, target_M, discount, E_indices, off_diag):
+        fb_offdiag: tp.Any = 0.5 * sum(sum((M - discount * target_M)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2])) 
+        # fb_offdiag1: tp.Any = (M1 - scaled_T)[E_indices, off_diag].pow(2).mean(-1) # e x 1
+        # fb_offdiag2: tp.Any = (M2 - scaled_T)[E_indices, off_diag].pow(2).mean(-1)
+        # fb_offdiag = 0.5 * (fb_offdiag1 + fb_offdiag2).sum()
+        # M.diagonal(dim1=-2, dim2=-1) returns diagonals over every ensemble so size is: E x batch
+        # then we average over B and sum over E and over M1 and M2
+        fb_diag: tp.Any = -sum(sum(M.diagonal(dim1=-2, dim2=-1).mean(-1) for M in [M1, M2]))
+        return fb_diag, fb_offdiag
+    
     def update_actor(self, obs: torch.Tensor, z: torch.Tensor, step: int) -> tp.Dict[str, float]:
         metrics: tp.Dict[str, float] = {}
         if self.cfg.boltzmann:
@@ -492,12 +504,6 @@ class FBDDPGAgent:
             assert batch.next_goal is not None
             next_goal = batch.next_goal
 
-        # if len(batch.meta) == 1 and batch.meta[0].shape[-1] == self.cfg.z_dim:
-        #     z = batch.meta[0]
-        #     invalid = torch.linalg.norm(z, dim=1) < 1e-15
-        #     if sum(invalid):
-        #         z[invalid, :] = self.sample_z(sum(invalid)).to(self.cfg.device)
-        # else:
         z = self.sample_z(self.cfg.batch_size, device=self.cfg.device)
         if not z.shape[-1] == self.cfg.z_dim:
             raise RuntimeError("There's something wrong with the logic here")
