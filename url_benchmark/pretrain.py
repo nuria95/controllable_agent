@@ -90,6 +90,11 @@ class Config:
     num_agent_updates: int = 1
     warmup: bool = True
     pretrain_update_steps: int = 1000
+    # to avoid hydra issues
+    project_dir: str = ""
+    results_dir: str = ""
+    id: int = 0
+    working_dir: str = ""
 
 
 @dataclasses.dataclass
