@@ -204,7 +204,7 @@ class BaseWorkspace(tp.Generic[C]):
             exp_name = '_'.join([
                 cfg.experiment, cfg.agent.name, self.domain
             ])
-            wandb.init(project="controllable_agent", group=cfg.agent.name, name=exp_name,  # mode="disabled",
+            wandb.init(project="controllable_agent", group=cfg.experiment, name=exp_name,  # mode="disabled",
                        config=omgcf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))  # type: ignore
         if cfg.goal_space is not None:
             if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
