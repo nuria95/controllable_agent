@@ -169,7 +169,7 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
 
 class BaseWorkspace(tp.Generic[C]):
     def __init__(self, cfg: C) -> None:
-        self.work_dir = Path.cwd()
+        self.work_dir = Path.cwd() if len(cfg.working_dir) == 0 else Path(cfg.working_dir)
         print(f'Workspace: {self.work_dir}')
         print(f'Running code in : {Path(__file__).parent.resolve().absolute()}')
         logger.info(f'Workspace: {self.work_dir}')
@@ -207,7 +207,7 @@ class BaseWorkspace(tp.Generic[C]):
 
         if cfg.use_wandb:
             exp_name = '_'.join([
-                cfg.experiment, cfg.agent.name, self.domain
+                cfg.experiment, cfg.agent.name, self.domain, str(cfg.id)
             ])
             wandb.init(project="controllable_agent", group=cfg.experiment, name=exp_name,  # mode="disabled",
                        config=omgcf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))  # type: ignore

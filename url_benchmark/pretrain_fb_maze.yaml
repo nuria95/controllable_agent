@@ -13,7 +13,7 @@ eval_every_frames: 100000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: dd
+experiment: online
 
 hydra:
   run:
