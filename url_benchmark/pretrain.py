@@ -504,6 +504,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
         self.replay_loader.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
+        meta_disagr = []
         physics_agg = dmc.PhysicsAggregator()
 
         while train_until_step(self.global_step):
@@ -537,6 +538,8 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                         log('buffer_size', len(self.replay_loader))
                         log('step', self.global_step)
                         log('z_correl', z_correl)
+                        if self.cfg.uncertainty:
+                            log('z_disagr', np.mean(meta_disagr))
 
                         for key, val in physics_agg.dump():
                             log(key, val)
@@ -551,6 +554,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                 episode_step = 0
                 episode_reward = 0.0
                 z_correl = 0.0
+                meta_disagr = []
 
             # try to evaluate
             if eval_every_step(self.global_step):
@@ -563,6 +567,8 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                     self.eval()
             meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
                                           uncertainty=self.cfg.uncertainty, obs=time_step.observation)
+            if self.cfg.uncertainty:
+                meta_disagr.append(meta['disagr'])
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
                 action = self.agent.act(time_step.observation,
