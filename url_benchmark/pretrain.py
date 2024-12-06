@@ -170,6 +170,7 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
 class BaseWorkspace(tp.Generic[C]):
     def __init__(self, cfg: C) -> None:
         self.work_dir = Path.cwd() if len(cfg.working_dir) == 0 else Path(cfg.working_dir)
+        self.model_dir = self.work_dir if 'cluster' not in self.work_dir else self.work_dir.replace('home', 'project/hilliges')
         print(f'Workspace: {self.work_dir}')
         print(f'Running code in : {Path(__file__).parent.resolve().absolute()}')
         logger.info(f'Workspace: {self.work_dir}')
@@ -226,7 +227,7 @@ class BaseWorkspace(tp.Generic[C]):
         self.global_step = 0
         self.global_episode = 0
         self.eval_rewards_history: tp.List[float] = []
-        self._checkpoint_filepath = self.work_dir / "models" / "latest.pt"
+        self._checkpoint_filepath = self.model_dir / "models" / "latest.pt"
         # This is for continuing training in case workdir is the same
         if self._checkpoint_filepath.exists():
             self.load_checkpoint(self._checkpoint_filepath)
