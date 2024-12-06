@@ -170,7 +170,7 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
 class BaseWorkspace(tp.Generic[C]):
     def __init__(self, cfg: C) -> None:
         self.work_dir = Path.cwd() if len(cfg.working_dir) == 0 else Path(cfg.working_dir)
-        self.model_dir = self.work_dir if 'cluster' not in self.work_dir else self.work_dir.replace('home', 'project/hilliges')
+        self.model_dir = self.work_dir if 'cluster' not in str(self.work_dir) else Path(str(self.work_dir).replace('home', 'project/hilliges'))
         print(f'Workspace: {self.work_dir}')
         print(f'Running code in : {Path(__file__).parent.resolve().absolute()}')
         logger.info(f'Workspace: {self.work_dir}')
