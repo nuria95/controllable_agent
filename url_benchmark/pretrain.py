@@ -538,7 +538,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                         log('buffer_size', len(self.replay_loader))
                         log('step', self.global_step)
                         log('z_correl', z_correl)
-                        if self.cfg.uncertainty:
+                        if self.cfg.uncertainty and len(meta_disagr) > 0:
                             log('z_disagr', np.mean(meta_disagr))
 
                         for key, val in physics_agg.dump():
