@@ -568,7 +568,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                     self.eval()
             meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
                                           uncertainty=self.cfg.uncertainty, obs=time_step.observation)
-            if self.cfg.uncertainty and 'diasagr' in meta:
+            if self.cfg.uncertainty and 'disagr' in meta and meta['updated']:
                 meta_disagr.append(meta['disagr'])
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):

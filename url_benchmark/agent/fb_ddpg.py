@@ -123,10 +123,14 @@ class FBDDPGAgent:
             self.actor = Actor(self.obs_dim, cfg.z_dim, self.action_dim,
                                cfg.feature_dim, cfg.hidden_dim,
                                preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
-        forward_net = ForwardMap(self.obs_dim, cfg.z_dim, self.action_dim,
-                                 cfg.feature_dim, cfg.hidden_dim,
-                                 preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
-        self.forward_net = EnsembleMLP(forward_net, n_ensemble=self.n_ensemble) if cfg.uncertainty else forward_net
+       
+        f_dict = {'obs_dim': self.obs_dim, 'z_dim': cfg.z_dim, 'action_dim': self.action_dim,
+                  'feature_dim': cfg.feature_dim, 'hidden_dim': cfg.hidden_dim,
+                  'preprocess': cfg.preprocess, 'add_trunk': self.cfg.add_trunk}
+        if not cfg.uncertainty:
+            self.forward_net = ForwardMap(**f_dict).to(cfg.device)
+        else:
+            self.forward_net = EnsembleMLP(f_dict, n_ensemble=self.n_ensemble, device=cfg.device) 
         if cfg.debug:
             self.backward_net: nn.Module = IdentityMap().to(cfg.device)
             self.backward_target_net: nn.Module = IdentityMap().to(cfg.device)
@@ -135,11 +139,10 @@ class FBDDPGAgent:
             self.backward_target_net = BackwardMap(goal_dim,
                                                    cfg.z_dim, cfg.backward_hidden_dim, norm_z=cfg.norm_z).to(cfg.device)
         # build up the target network
-        forward_target_net = ForwardMap(self.obs_dim, cfg.z_dim, self.action_dim,
-                                         cfg.feature_dim, cfg.hidden_dim,
-                                         preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
-
-        self.forward_target_net = EnsembleMLP(forward_target_net, n_ensemble=5) if cfg.uncertainty else forward_target_net
+        if not cfg.uncertainty:
+            self.forward_target_net = ForwardMap(**f_dict).to(cfg.device)
+        else:
+            self.forward_target_net = EnsembleMLP(f_dict, n_ensemble=self.n_ensemble, device=cfg.device) 
         # load the weights into the target networks
         self.forward_target_net.load_state_dict(self.forward_net.state_dict())
         self.backward_target_net.load_state_dict(self.backward_net.state_dict())
@@ -242,6 +245,7 @@ class FBDDPGAgent:
             z = z.squeeze().numpy()
             meta = OrderedDict()
             meta['z'] = z
+        meta['updated'] = True
         return meta
     
     def init_curious_meta(self, obs: np.ndarray) -> MetaDict:
@@ -259,6 +263,7 @@ class FBDDPGAgent:
         meta = OrderedDict()
         meta['z'] = uncertain_z
         meta['disagr'] = epistemic_std1.std().item()
+        meta['updated'] = True
         return meta
 
     # pylint: disable=unused-argument
@@ -274,6 +279,7 @@ class FBDDPGAgent:
     ) -> MetaDict:
         if global_step % self.cfg.update_z_every_step == 0 and np.random.rand() < self.cfg.update_z_proba:
             return self.init_meta() if not uncertainty else self.init_curious_meta(obs)
+        meta['updated'] = False
         return meta
 
     def act(self, obs, meta, step, eval_mode) -> tp.Any:
