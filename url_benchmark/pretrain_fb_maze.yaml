@@ -14,6 +14,8 @@ use_wandb: true
 warmup: false
 seed: 0
 experiment: online
+agent:
+  batch_size: 512
 
 hydra:
   run:

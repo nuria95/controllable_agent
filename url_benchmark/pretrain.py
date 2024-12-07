@@ -115,6 +115,8 @@ class PretrainConfig(Config):
 
 # loaded as base_pretrain in pretrain.yaml
 # we keep the yaml since it's easier to configure plugins from it
+# Name the PretrainConfig as "workspace_config".
+# When we load workspace_config it in the main config, we are telling it to load: PretrainConfig.
 ConfigStore.instance().store(name="workspace_config", node=PretrainConfig)
 
 
@@ -193,7 +195,6 @@ class BaseWorkspace(tp.Generic[C]):
         self.train_env = self._make_env()
         self.eval_env = self._make_env()
         # create agent
-        cfg.agent.uncertainty = cfg.uncertainty
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),
                                 self.train_env.action_spec(),
@@ -597,6 +598,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
 @hydra.main(config_path='.', config_name='base_config', version_base="1.1")
 def main(cfg: omgcf.DictConfig) -> None:
     # we assume cfg is a PretrainConfig (but actually not really)
+    # calls Config and PretrainConfig
     workspace = Workspace(cfg)  # type: ignore
     workspace.train()
 
