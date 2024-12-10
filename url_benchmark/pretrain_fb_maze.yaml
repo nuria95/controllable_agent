@@ -16,7 +16,7 @@ seed: 0
 experiment: online
 agent:
   batch_size: 512
-
+  z_dim: 100
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
