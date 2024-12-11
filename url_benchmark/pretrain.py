@@ -569,8 +569,8 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                 self.replay_loader.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
-                if self.global_frame in self.cfg.snapshot_at:
-                    self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_{self.global_frame}.pt'))
+                # if self.global_frame in self.cfg.snapshot_at:
+                #     self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_{self.global_frame}.pt'))
                 episode_step = 0
                 episode_reward = 0.0
                 z_correl = 0.0
