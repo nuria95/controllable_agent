@@ -95,6 +95,7 @@ class Config:
     results_dir: str = ""
     id: int = 0
     working_dir: str = ""
+    debug: bool = False
 
 
 @dataclasses.dataclass
@@ -481,13 +482,13 @@ class Workspace(BaseWorkspace[PretrainConfig]):
             else:
                 assert not cfg.warmup, "Trying to warmup without a preloaded replay buffer"
 
-    def _init_meta(self):
+    def _init_meta(self, obs: np.ndarray = None):
         if isinstance(self.agent, agents.GoalTD3Agent) and isinstance(self.reward_cls, _goals.MazeMultiGoal):
             meta = self.agent.init_meta(self.reward_cls)
         elif isinstance(self.agent, agents.GoalSMAgent) and len(self.replay_loader) > 0:
             meta = self.agent.init_meta(self.replay_loader)
         else:
-            meta = self.agent.init_meta()
+            meta = self.agent.init_meta(obs)
         return meta
 
     def train(self) -> None:
@@ -502,7 +503,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                                         self.cfg.action_repeat)
         episode_step, episode_reward, z_correl = 0, 0.0, 0.0
         time_step = self.train_env.reset()
-        meta = self._init_meta()
+        meta = self._init_meta(time_step.observation)
         self.replay_loader.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -547,7 +548,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                             log(key, val)
                 # reset env
                 time_step = self.train_env.reset()
-                meta = self._init_meta()
+                meta = self._init_meta(time_step.observation)
                 self.replay_loader.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
@@ -559,16 +560,15 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                 meta_disagr = []
 
             # try to evaluate
-            if eval_every_step(self.global_step):
+            if eval_every_step(self.global_step) and not self.cfg.debug:
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 if self.cfg.custom_reward == "maze_multi_goal":
                     self.eval_maze_goals()
-                    # pass
                 else:
                     self.eval()
             meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
-                                          uncertainty=self.cfg.uncertainty, obs=time_step.observation)
+                                          obs=time_step.observation)
             if self.cfg.uncertainty and 'disagr' in meta and meta['updated']:
                 meta_disagr.append(meta['disagr'])
             # sample action

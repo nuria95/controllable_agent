@@ -236,7 +236,9 @@ class FBDDPGAgent:
             z = np.sqrt(self.cfg.z_dim) * uniform_rdv * gaussian_rdv
         return z
 
-    def init_meta(self) -> MetaDict:
+    def init_meta(self, obs: np.ndarray = None) -> MetaDict:
+        if self.cfg.uncertainty:
+            return self.init_curious_meta(obs)
         if self.solved_meta is not None:
             print('solved_meta')
             return self.solved_meta
@@ -274,11 +276,10 @@ class FBDDPGAgent:
         time_step: TimeStep,
         finetune: bool = False,
         replay_loader: tp.Optional[ReplayBuffer] = None,
-        uncertainty: bool = False,
         obs: np.ndarray = None,
     ) -> MetaDict:
         if global_step % self.cfg.update_z_every_step == 0 and np.random.rand() < self.cfg.update_z_proba:
-            return self.init_meta() if not uncertainty else self.init_curious_meta(obs)
+            return self.init_meta() if not self.cfg.uncertainty else self.init_curious_meta(obs)
         meta['updated'] = False
         return meta
 
