@@ -253,13 +253,13 @@ class FBDDPGAgent:
     def init_curious_meta(self, obs: np.ndarray) -> MetaDict:
         with torch.no_grad():
             num_zs = 100
-            z = self.sample_z(size=num_zs, device=self.cfg.device) # num_zs x z_dim
+            z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
             obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).expand(num_zs, -1) # num_zs x obs_dim
             h = self.encoder(obs)
             acts = self.actor(h, z, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
             F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
             Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
-        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0) # num_zs
+        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs
         idxs = torch.argmax(epistemic_std1, dim=0)
         uncertain_z = z[idxs].cpu().numpy()  # take the z with the highest epistemic uncertainty
         meta = OrderedDict()
@@ -315,6 +315,16 @@ class FBDDPGAgent:
             zs[0] = self.backward_net(zs[0])
             zs = [F.normalize(z, 1) for z in zs]
             return torch.matmul(zs[0], zs[1].T).item()
+
+    def compute_eval_disagreement(self) -> float:
+        with torch.no_grad():
+            h = self.encoder(self.eval_states)
+            acts = self.actor(h, self.eval_zs, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
+            F1, F2 = self.forward_net((self.eval_states, self.eval_zs, acts))  # ensemble_size x num_zs x z_dim
+            Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x num_zs
+        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs
+        metrics = {'disagreement': epistemic_std1.mean().item()}
+        return metrics
 
     def update_fb(
         self,
@@ -554,6 +564,8 @@ class FBDDPGAgent:
 
         # update actor
         metrics.update(self.update_actor(obs, z, step))
+        #compute disagr
+        metrics.update(self.compute_eval_disagreement())
 
         # update critic target
         utils.soft_update_params(self.forward_net, self.forward_target_net,

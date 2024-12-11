@@ -13,6 +13,8 @@ from collections import OrderedDict
 import numpy as np
 from url_benchmark import dmc
 from dm_control.utils import rewards
+import torch
+
 
 from url_benchmark.custom_dmc_tasks.jaco import TASKS as jaco_tasks_list
 from url_benchmark.custom_dmc_tasks.point_mass_maze import TASKS as point_mass_maze_tasks_list
@@ -412,6 +414,24 @@ class MazeMultiGoal(BaseReward):
                                    bounds=(0, target_size), margin=target_size)
         success = float(distance < target_size)
         return reward, distance, success
+
+    def get_eval_states(self, num_states: int) -> torch.Tensor:
+        # Samples states unioformly from the maze (avoiding region inside walls)
+        state_max, state_min = [0.29, 0.29, 0.09, 0.09], [-0.29, -0.29, -0.09, -0.09]
+        dis = torch.distributions.Uniform(low=torch.tensor(state_min), high=torch.tensor(state_max))
+        samples = dis.sample((num_states,))
+        # avoid sampling inside walls
+        condition = (samples[:, 0] > 0.2) | (samples[:, 0] < -0.2) | (samples[:, 1] > 0.2) | (samples[:, 1] < -0.2) | \
+            (((samples[:, 0] > 0.04) | (samples[:, 0] < -0.04)) & ((samples[:, 1] < -0.04) | (samples[:, 1] > 0.04)))
+        samples = samples[condition]
+        while len(samples) < 1000:
+            new_samples = dis.sample((20,))
+            samples = torch.concatenate((samples, new_samples), axis=0)
+            condition = (samples[:, 0] > 0.2) | (samples[:, 0] < -0.2) | (samples[:, 1] > 0.2) | (samples[:, 1] < -0.2) | \
+                (((samples[:, 0] > 0.04) | (samples[:, 0] < -0.04)) & ((samples[:, 1] < -0.04) | (samples[:, 1] > 0.04)))
+            samples = samples[condition]
+        samples = samples[:num_states, :]
+        return samples
 
 
 class WalkerYogaReward():

@@ -240,6 +240,9 @@ class BaseWorkspace(tp.Generic[C]):
         self.reward_cls: tp.Optional[_goals.BaseReward] = None
         if self.cfg.custom_reward == "maze_multi_goal":
             self.reward_cls = self._make_custom_reward(seed=self.cfg.seed)
+            # Compute fix states and zs for evaluating disagreement through time
+            self.agent.eval_states = _goals.MazeMultiGoal().get_eval_states(num_states=500).to(self.device)
+            self.agent.eval_zs = self.agent.sample_z(len(self.agent.eval_states), device=self.device)    
 
     def _make_env(self) -> dmc.EnvWrapper:
         cfg = self.cfg
