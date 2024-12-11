@@ -307,8 +307,8 @@ class BaseWorkspace(tp.Generic[C]):
             log('step', self.global_step)
             log('episode', self.global_episode)
             log('success_rate', float(np.mean(successes)))
-            for i in range(0, len(successes), reward_cls.goals_per_room):
-                log(f'success_room{i+1}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
+            for i, room in zip(range(0, len(successes), reward_cls.goals_per_room), range(1, 5)):
+                log(f'success_room{room}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
         
     def eval(self) -> None:
         step, episode = 0, 0
