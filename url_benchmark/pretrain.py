@@ -229,6 +229,7 @@ class BaseWorkspace(tp.Generic[C]):
         self.global_step = 0
         self.global_episode = 0
         self.eval_rewards_history: tp.List[float] = []
+        self.eval_dist_history: tp.List[float] = []
         self._checkpoint_filepath = self.model_dir / "models" / "latest.pt"
         # This is for continuing training in case workdir is the same
         if self._checkpoint_filepath.exists():
@@ -266,9 +267,12 @@ class BaseWorkspace(tp.Generic[C]):
     def eval_maze_goals(self) -> None:
         reward_cls = _goals.MazeMultiGoal()
         rewards = list()
+        dists = list()
+        successes = list()
         for g in reward_cls.goals:
             goal_rewards = list()
             goal_distances = list()
+            goal_successes = list()
             meta = self.agent.get_goal_meta(g)
             for episode in range(self.cfg.num_eval_episodes):
                 self.video_recorder.init(self.eval_env, enabled=(episode == 0))
@@ -283,19 +287,29 @@ class BaseWorkspace(tp.Generic[C]):
                     time_step = self.eval_env.step(action)
                     self.video_recorder.record(self.eval_env)
                     assert isinstance(time_step, dmc.ExtendedGoalTimeStep)
-                    step_reward, distance = reward_cls.from_goal(time_step.goal, g)
+                    step_reward, distance, success = reward_cls.from_goal(time_step.goal, g)
                     episode_reward += step_reward
                 goal_rewards.append(episode_reward)
-                goal_distances.append(distance)
+                goal_distances.append(float(distance))
+                goal_successes.append(success)
                 self.video_recorder.save(f'{g}.mp4')
-            print(f"goal: {g}, avg_reward: {round(float(np.mean(goal_rewards)), 2)}, avg_distance: {round(float(np.mean(goal_distances)), 5)}")
+            print(f"goal: {g}, avg_reward: {round(float(np.mean(goal_rewards)), 2)}, "
+                  f"avg_distance: {round(float(np.mean(goal_distances)), 5)}, "
+                  f"avg_success: {round(float(np.mean(goal_successes)), 5)}")
             rewards.append(float(np.mean(goal_rewards)))
+            dists.append(float(np.mean(goal_distances)))
+            successes.append(float(np.mean(goal_successes)))  # num goals x 1
         self.eval_rewards_history.append(float(np.mean(rewards)))
+        self.eval_dist_history.append(float(np.mean(dists)))
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
             log('episode_reward', self.eval_rewards_history[-1])
+            log('episode_distance', self.eval_dist_history[-1])
             log('step', self.global_step)
             log('episode', self.global_episode)
-
+            log('success_rate', float(np.mean(successes)))
+            for i in range(0, len(successes), reward_cls.goals_per_room):
+                log(f'success_room{i+1}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
+        
     def eval(self) -> None:
         step, episode = 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)

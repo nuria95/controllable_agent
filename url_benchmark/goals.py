@@ -371,7 +371,7 @@ class WalkerPosReward(BaseReward):
 class MazeMultiGoal(BaseReward):
     def __init__(self, seed: tp.Optional[int] = None) -> None:
         super().__init__(seed)
-
+        self.goals_per_room = 5
         self.goals = np.array([
             [-0.15, 0.15],  # room 1: top left
             [-0.22, 0.22],  # room 1
@@ -394,6 +394,7 @@ class MazeMultiGoal(BaseReward):
             [0.22, -0.08],  # room 4
             [0.08, -0.22],  # room 4
         ], dtype=np.float32)
+        assert len(self.goals) == self.goals_per_room * 4
         # save images for debug
         # import imageio
         # self._env = dmc.make("point_mass_maze_multi_goal", obs_type="states", frame_stack=1, action_repeat=1, seed=12)
@@ -409,7 +410,8 @@ class MazeMultiGoal(BaseReward):
         distance = np.linalg.norm(d, axis=-1) if len(d.shape) > 0 else np.linalg.norm(d)
         reward = rewards.tolerance(distance,
                                    bounds=(0, target_size), margin=target_size)
-        return reward, distance
+        success = float(distance < target_size)
+        return reward, distance, success
 
 
 class WalkerYogaReward():
