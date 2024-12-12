@@ -80,6 +80,7 @@ class FBDDPGAgentConfig:
     additional_metric: bool = False
     add_trunk: bool = False
     uncertainty: bool = omegaconf.II("uncertainty")
+    n_ensemble: int = 5
 
 
 cs = ConfigStore.instance()
@@ -97,7 +98,6 @@ class FBDDPGAgent:
         assert len(cfg.action_shape) == 1
         self.action_dim = cfg.action_shape[0]
         self.solved_meta: tp.Any = None
-        self.n_ensemble = 5
 
         # models
         if cfg.obs_type == 'pixels':
@@ -130,7 +130,7 @@ class FBDDPGAgent:
         if not cfg.uncertainty:
             self.forward_net = ForwardMap(**f_dict).to(cfg.device)
         else:
-            self.forward_net = EnsembleMLP(f_dict, n_ensemble=self.n_ensemble, device=cfg.device) 
+            self.forward_net = EnsembleMLP(f_dict, n_ensemble=self.cfg.n_ensemble, device=cfg.device) 
         if cfg.debug:
             self.backward_net: nn.Module = IdentityMap().to(cfg.device)
             self.backward_target_net: nn.Module = IdentityMap().to(cfg.device)
@@ -142,7 +142,7 @@ class FBDDPGAgent:
         if not cfg.uncertainty:
             self.forward_target_net = ForwardMap(**f_dict).to(cfg.device)
         else:
-            self.forward_target_net = EnsembleMLP(f_dict, n_ensemble=self.n_ensemble, device=cfg.device) 
+            self.forward_target_net = EnsembleMLP(f_dict, n_ensemble=self.cfg.n_ensemble, device=cfg.device) 
         # load the weights into the target networks
         self.forward_target_net.load_state_dict(self.forward_net.state_dict())
         self.backward_target_net.load_state_dict(self.backward_net.state_dict())
@@ -378,7 +378,7 @@ class FBDDPGAgent:
             # compute the offidagonal term for each member averaging over batch dim, and summing over E and over M1 and M2
             # this one seems to be quite costly
             scaled_T = discount * target_M
-            fb_offdiag: tp.Any = 0.5 * sum(sum((M - scaled_T)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2])) 
+            fb_offdiag: tp.Any = 1/(2*self.cfg.n_ensemble) * sum(sum((M - scaled_T)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2]))
             # fb_offdiag1: tp.Any = (M1 - scaled_T)[E_indices, off_diag].pow(2).mean(-1) # e x 1
             # fb_offdiag2: tp.Any = (M2 - scaled_T)[E_indices, off_diag].pow(2).mean(-1)
             # fb_offdiag = 0.5 * (fb_offdiag1 + fb_offdiag2).sum()
@@ -387,7 +387,7 @@ class FBDDPGAgent:
             fb_diag: tp.Any = -sum(sum(M.diagonal(dim1=-2, dim2=-1).mean(-1) for M in [M1, M2]))
         fb_loss = fb_offdiag + fb_diag
         # Q LOSS
-        if self.cfg.q_loss: # TODO This is not updated with curiosity
+        if self.cfg.q_loss:  # TODO This is not updated with curiosity
             with torch.no_grad():
                 next_Q1, nextQ2 = [torch.einsum('sd, sd -> s', target_Fi, z) for target_Fi in [target_F1, target_F2]]
                 next_Q = torch.min(next_Q1, nextQ2)
@@ -516,7 +516,8 @@ class FBDDPGAgent:
         discount = batch.discount
         next_obs = next_goal = batch.next_obs
         if self.cfg.goal_space is not None:
-            if self.cfg.goal_space == 'simplified_point_mass_maze' and batch.next_goal is None:
+            # in case goal_space is defined and next_goal is not in batch (case of prefill)
+            if batch.next_goal is None and self.cfg.goal_space == 'simplified_point_mass_maze':
                 batch.next_goal = batch.next_obs[:, :2]
             assert batch.next_goal is not None
             next_goal = batch.next_goal
@@ -527,7 +528,8 @@ class FBDDPGAgent:
         backward_input = batch.obs
         future_goal = batch.future_obs
         if self.cfg.goal_space is not None:
-            if self.cfg.goal_space == 'simplified_point_mass_maze' and batch.goal is None:
+            # in case goal_space is defined and next_goal is not in batch (case of prefill)
+            if batch.goal is None and self.cfg.goal_space == 'simplified_point_mass_maze':
                 batch.goal = batch.obs[:, :2]
             assert batch.goal is not None
             backward_input = batch.goal
@@ -555,6 +557,7 @@ class FBDDPGAgent:
 
         # hindsight replay
         if self.cfg.future_ratio > 0:
+            print('I think one needs to also normalize the zs afterwards (Nuria)')
             assert future_goal is not None
             future_idxs = np.where(np.random.uniform(size=self.cfg.batch_size) < self.cfg.future_ratio)
             z[future_idxs] = self.backward_net(future_goal[future_idxs]).detach()
@@ -565,7 +568,8 @@ class FBDDPGAgent:
         # update actor
         metrics.update(self.update_actor(obs, z, step))
         #compute disagr
-        metrics.update(self.compute_eval_disagreement())
+        if self.cfg.uncertainty:
+            metrics.update(self.compute_eval_disagreement())
 
         # update critic target
         utils.soft_update_params(self.forward_net, self.forward_target_net,
