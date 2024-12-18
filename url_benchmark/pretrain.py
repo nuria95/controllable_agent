@@ -96,7 +96,7 @@ class Config:
     id: int = 0
     working_dir: str = ""
     debug: bool = False
-
+    eval: bool = False
 
 @dataclasses.dataclass
 class PretrainConfig(Config):
@@ -610,6 +610,20 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                 self.save_checkpoint(self._checkpoint_filepath)
         self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
         self.finalize()
+    
+    def eval(self) -> None:
+        self.agent.compute_eval_disagreement()
+        xy = self.agent.eval_states[:, :2].cpu().numpy()  # num_states x 2
+        # self.agent.Q1 is num_ensembles x num_states
+        ep_std1, ep_std2 = self.agent.Q1.std(dim=0).cpu().numpy(), self.agent.Q2.std(dim=0).cpu().numpy()  # num_states
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(8, 6))
+        scatter = plt.scatter(xy[:, 0], xy[:, 1], c=ep_std1, cmap='viridis', s=100, edgecolor='k')
+        plt.colorbar(scatter, label="Value")  # Add a colorbar
+        plt.title("Q1 std")
+        plt.show()
+        
+        
 
 
 @hydra.main(config_path='.', config_name='base_config', version_base="1.1")
@@ -617,8 +631,10 @@ def main(cfg: omgcf.DictConfig) -> None:
     # we assume cfg is a PretrainConfig (but actually not really)
     # calls Config and PretrainConfig
     workspace = Workspace(cfg)  # type: ignore
-    workspace.train()
-
+    if not cfg.eval:
+        workspace.train()
+    else:
+        workspace.eval()
 
 if __name__ == '__main__':
     main()

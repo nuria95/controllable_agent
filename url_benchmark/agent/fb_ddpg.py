@@ -321,8 +321,8 @@ class FBDDPGAgent:
             h = self.encoder(self.eval_states)
             acts = self.actor(h, self.eval_zs, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
             F1, F2 = self.forward_net((self.eval_states, self.eval_zs, acts))  # ensemble_size x num_zs x z_dim
-            Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x num_zs
-        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs
+            self.Q1, self.Q2 = [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x num_zs
+        epistemic_std1, epistemic_std2 = self.Q1.std(dim=0), self.Q2.std(dim=0)  # num_zs
         metrics = {'disagreement': epistemic_std1.mean().item()}
         return metrics
 
