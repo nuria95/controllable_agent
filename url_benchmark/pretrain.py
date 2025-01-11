@@ -612,7 +612,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
         self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
         self.finalize()
     
-    def eval(self) -> None:
+    def eval_model(self) -> None:
         self.agent.compute_eval_disagreement()
         xy = self.agent.eval_states[:, :2].cpu().numpy()  # num_states x 2
         # self.agent.Q1 is num_ensembles x num_states
@@ -635,7 +635,7 @@ def main(cfg: omgcf.DictConfig) -> None:
     if not cfg.eval:
         workspace.train()
     else:
-        workspace.eval()
+        workspace.eval_model()
 
 if __name__ == '__main__':
     main()
