@@ -323,7 +323,18 @@ class FBDDPGAgent:
             F1, F2 = self.forward_net((self.eval_states, self.eval_zs, acts))  # ensemble_size x num_zs x z_dim
             self.Q1, self.Q2 = [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x num_zs
         epistemic_std1, epistemic_std2 = self.Q1.std(dim=0), self.Q2.std(dim=0)  # num_zs
-        metrics = {'disagreement': epistemic_std1.mean().item()}
+        metrics = {f'disagreement{i+1}': std1.item() for i, std1 in enumerate(epistemic_std1)}
+        metrics['disagreement'] = epistemic_std1.mean().item()
+        
+        metrics2 = {f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1.mean(dim=0))}
+        metrics.update(metrics2)
+        
+        metrics3 = {f'disagreement{i+1}_scale': std1.item()/q.item() for i, std1, q in zip(range(len(epistemic_std1)), epistemic_std1, self.Q1.mean(dim=0))}
+        metrics.update(metrics3)
+        for room in range(len(self.Q1.mean(dim=0))):
+            m = {f'Qroom{room+1}_{i+1}': q.item() for i, q in enumerate(self.Q1[:,room])}
+            metrics.update(m)
+            
         return metrics
 
     def update_fb(

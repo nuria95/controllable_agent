@@ -433,6 +433,15 @@ class MazeMultiGoal(BaseReward):
         samples = samples[:num_states, :]
         return samples
 
+    def get_eval_midroom_states(self,) -> torch.Tensor:
+        states = torch.tensor([
+            [-0.15, 0.15, 0., 0.],  # room 1: top left
+            [0.15, 0.15, 0., 0.],  # room 2: top right
+            [-0.15, -0.15, 0., 0.],  # room 3: bottom left
+            [0.15, -0.15, 0., 0.],  # room 4: bottom right
+        ])
+        return states
+
 
 class WalkerYogaReward():
     def __init__(self) -> None:

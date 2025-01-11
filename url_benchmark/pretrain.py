@@ -241,7 +241,8 @@ class BaseWorkspace(tp.Generic[C]):
         if self.cfg.custom_reward == "maze_multi_goal":
             self.reward_cls = self._make_custom_reward(seed=self.cfg.seed)
             # Compute fix states and zs for evaluating disagreement through time
-            self.agent.eval_states = _goals.MazeMultiGoal().get_eval_states(num_states=500).to(self.device)
+            # self.agent.eval_states = _goals.MazeMultiGoal().get_eval_states(num_states=500).to(self.device)
+            self.agent.eval_states = _goals.MazeMultiGoal().get_eval_midroom_states().to(self.device)
             self.agent.eval_zs = self.agent.sample_z(len(self.agent.eval_states), device=self.device)    
 
     def _make_env(self) -> dmc.EnvWrapper:
@@ -538,7 +539,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                     print('\nPretraining done\n')
                 for _ in range(self.cfg.num_agent_updates):
                     metrics = self.agent.update(self.replay_loader, self.global_step)
-                    self.logger.log_metrics(metrics, self.global_frame, ty='train')
+                self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
             if time_step.last():
                 self.global_episode += 1

@@ -8,15 +8,16 @@ defaults:
 task: point_mass_maze_reach_bottom_right
 custom_reward: maze_multi_goal
 goal_space: simplified_point_mass_maze
-uncertainty: False
+uncertainty: True
 eval_every_frames: 100000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: online
+experiment: online_track_disagr
 agent:
-  batch_size: 512
+  batch_size: 256
   z_dim: 100
+num_eval_episodes: 10
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
