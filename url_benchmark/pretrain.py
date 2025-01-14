@@ -609,7 +609,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
     
     def eval_model(self) -> None:
         self.eval()
-        self.agent.compute_eval_disagreement()
+        self.agent.compute_disagreement_metrics()
         xy = self.agent.eval_states[:, :2].cpu().numpy()  # num_states x 2
         # self.agent.Q1 is num_ensembles x num_states
         ep_std1, ep_std2 = self.agent.Q1.std(dim=0).cpu().numpy(), self.agent.Q2.std(dim=0).cpu().numpy()  # num_states

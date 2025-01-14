@@ -316,26 +316,24 @@ class FBDDPGAgent:
             zs = [F.normalize(z, 1) for z in zs]
             return torch.matmul(zs[0], zs[1].T).item()
 
-    def compute_eval_disagreement(self) -> float:
-        return {}
+    def compute_disagreement_metrics(self) -> float:
         with torch.no_grad():
             h = self.encoder(self.eval_states)
             acts = self.actor(h, self.eval_zs, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
             F1, F2 = self.forward_net((self.eval_states, self.eval_zs, acts))  # ensemble_size x num_zs x z_dim
-            self.Q1, self.Q2 = [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x num_zs
-        epistemic_std1, epistemic_std2 = self.Q1.std(dim=0), self.Q2.std(dim=0)  # num_zs
-        metrics = {f'disagreement{i+1}': std1.item() for i, std1 in enumerate(epistemic_std1)}
-        metrics['disagreement'] = epistemic_std1.mean().item()
-        
-        metrics2 = {f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1.mean(dim=0))}
-        metrics.update(metrics2)
-        
-        metrics3 = {f'disagreement{i+1}_scale': std1.item()/q.item() for i, std1, q in zip(range(len(epistemic_std1)), epistemic_std1, self.Q1.mean(dim=0))}
-        metrics.update(metrics3)
-        for room in range(len(self.Q1.mean(dim=0))):
-            m = {f'Qroom{room+1}_{i+1}': q.item() for i, q in enumerate(self.Q1[:,room])}
-            metrics.update(m)
-            
+            if self.cfg.uncertainty:
+                self.Q1, self.Q2 = [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x num_zs
+            else:
+                self.Q1, self.Q2 = [torch.einsum('sd, sd -> s', Fi, self.eval_zs) for Fi in [F1, F2]]
+        metrics = {}
+        if self.cfg.uncertainty:
+            epistemic_std1, epistemic_std2 = self.Q1.std(dim=0), self.Q2.std(dim=0)  # num_zs
+            metrics.update({f'disagreement{i+1}': std1.item() for i, std1 in enumerate(epistemic_std1)})
+            metrics['disagreement'] = epistemic_std1.mean().item()
+            metrics.update({f'disagreement{i+1}_scale': std1.item()/q.item() for i, std1, q in zip(range(len(epistemic_std1)), epistemic_std1, self.Q1.mean(dim=0))})
+            for room in range(len(self.Q1.mean(dim=0))):
+                metrics.update({f'Qroom{room+1}_{i+1}': q.item() for i, q in enumerate(self.Q1[:, room])})
+        metrics.update({f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1.mean(dim=0))} if self.Q1.dim() > 1 else {f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1)})   
         return metrics
 
     def update_fb(
@@ -580,8 +578,7 @@ class FBDDPGAgent:
         # update actor
         metrics.update(self.update_actor(obs, z, step))
         #compute disagr
-        if self.cfg.uncertainty:
-            metrics.update(self.compute_eval_disagreement())
+        metrics.update(self.compute_disagreement_metrics())
 
         # update critic target
         utils.soft_update_params(self.forward_net, self.forward_target_net,
