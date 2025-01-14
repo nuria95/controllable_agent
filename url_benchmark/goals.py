@@ -140,6 +140,9 @@ def walker_walk() -> np.ndarray:
 def walker_run() -> np.ndarray:
     return np.array([1.2, 1.0, 4], dtype=np.float32)
 
+@goals("simplified_walker")
+def walker_upside() -> np.ndarray:
+    return np.array([1.2, -1.0, 0], dtype=np.float32)
 
 @goals("simplified_quadruped")
 def quadruped_stand() -> np.ndarray:

@@ -98,6 +98,25 @@ def flip(time_limit: int = _DEFAULT_TIME_LIMIT,
                                **environment_kwargs)
 
 
+@SUITE.add('benchmarking')
+def upside(time_limit: int = _DEFAULT_TIME_LIMIT,
+           random=None,
+           environment_kwargs=None):
+    """Returns the Run task."""
+    physics = Physics.from_xml_string(*get_model_and_assets())
+    task = PlanarWalker(move_speed=_RUN_SPEED,
+                        forward=True,
+                        flip=True,
+                        random=random)
+    environment_kwargs = environment_kwargs or {}
+    return control.Environment(physics,
+                               task,
+                               time_limit=time_limit,
+                               control_timestep=_CONTROL_TIMESTEP,
+                               **environment_kwargs)
+
+
+
 class Physics(mujoco.Physics):
     """Physics simulation with additional features for the Walker domain."""
 

@@ -45,9 +45,6 @@ logger = logging.getLogger(__name__)
 torch.backends.cudnn.benchmark = True
 # os.environ['WANDB_MODE']='offline'
 
-# from url_benchmark.dmc_benchmark import PRIMAL_TASKS
-
-
 # # # Config # # #
 
 @dataclasses.dataclass
@@ -344,11 +341,9 @@ class BaseWorkspace(tp.Generic[C]):
                 time_step = self.eval_env.step(action)
                 physics_agg.add(self.eval_env)
                 self.video_recorder.record(self.eval_env)
-                # for legacy reasons, we need to check the name :s
-                if isinstance(self.agent, agents.FBDDPGAgent):
-                    if self.agent.cfg.additional_metric:
-                        z_correl += self.agent.compute_z_correl(time_step, meta)
-                        actor_success.extend(self.agent.actor_success)
+                if self.agent.cfg.additional_metric:
+                    z_correl += self.agent.compute_z_correl(time_step, meta)
+                    actor_success.extend(self.agent.actor_success)
                 if custom_reward is not None:
                     time_step.reward = custom_reward.from_env(self.eval_env)
                 total_reward += time_step.reward
@@ -460,7 +455,7 @@ class BaseWorkspace(tp.Generic[C]):
             domain_tasks = {
                 "cheetah": ['walk', 'walk_backward', 'run', 'run_backward'],
                 "quadruped": ['stand', 'walk', 'run', 'jump'],
-                "walker": ['stand', 'walk', 'run', 'flip'],
+                "walker": ['stand', 'walk', 'run', 'flip', 'upside'],
             }
             if self.domain not in domain_tasks:
                 return
@@ -613,6 +608,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
         self.finalize()
     
     def eval_model(self) -> None:
+        self.eval()
         self.agent.compute_eval_disagreement()
         xy = self.agent.eval_states[:, :2].cpu().numpy()  # num_states x 2
         # self.agent.Q1 is num_ensembles x num_states

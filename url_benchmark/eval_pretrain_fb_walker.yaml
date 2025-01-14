@@ -5,21 +5,22 @@ defaults:
   - _self_
 
 
-task: point_mass_maze_reach_bottom_right
-custom_reward: maze_multi_goal
-goal_space: simplified_point_mass_maze
+task: walker_upside
+goal_space: simplified_walker
+append_goal_to_observation: True
 uncertainty: True
-eval_every_frames: 100000
+eval_every_frames: 10000
 use_wandb: false
 warmup: false
 seed: 0
-experiment: online_track_disagr
+experiment: test_walker
+discount: 0.98
 agent:
   batch_size: 256
-  z_dim: 100
+  z_dim: 50
 num_eval_episodes: 10
-load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_maze_trackdisagr2/4/models/latest.pt
 eval: true
+load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_walker_walk/1/models/latest.pt
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}

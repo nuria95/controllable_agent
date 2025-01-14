@@ -25,6 +25,7 @@ WALKER_TASKS = [
     'walker_walk',
     'walker_run',
     'walker_flip',
+    'walker_upside'
 ]
 
 QUADRUPED_TASKS = [
