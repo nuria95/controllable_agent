@@ -231,8 +231,9 @@ class BaseWorkspace(tp.Generic[C]):
         # This is for continuing training in case workdir is the same
         if self._checkpoint_filepath.exists():
             self.load_checkpoint(self._checkpoint_filepath)
+        # This is for loading an existing model
         elif cfg.load_model is not None:
-            self.load_checkpoint(cfg.load_model, exclude=["replay_loader"])
+            self.load_checkpoint(cfg.load_model) #, exclude=["replay_loader"])
 
         self.reward_cls: tp.Optional[_goals.BaseReward] = None
         if self.cfg.custom_reward == "maze_multi_goal":
@@ -317,7 +318,7 @@ class BaseWorkspace(tp.Generic[C]):
         physics_agg = dmc.PhysicsAggregator()
         rewards: tp.List[float] = []
         normalized_scores: tp.List[float] = []
-        meta = _init_eval_meta(self)  # Don't work
+        # meta = _init_eval_meta(self, custom_reward) 
         z_correl = 0.0
         is_d4rl_task = self.cfg.task.split('_')[0] == 'd4rl'
         actor_success: tp.List[float] = []
@@ -422,14 +423,14 @@ class BaseWorkspace(tp.Generic[C]):
                 val._future = self.cfg.future
                 val._discount = self.cfg.discount
                 # val._max_episodes = len(val._storage["discount"])
-                val._idx = len(val._storage["discount"]) % self.cfg.replay_buffer_episodes
-                val._full = val._idx == 0
+                # val._idx = len(val._storage["discount"]) % self.cfg.replay_buffer_episodes
+                # val._full = val._idx == 0
                 val._max_episodes = self.cfg.replay_buffer_episodes
                 val._episodes_length = np.array([len(array) - 1 for array in val._storage["discount"]], dtype=np.int32)
                 self.replay_loader = val
-                # TODO:  This leads to out of RAM for now (to be fixed)
-                if not self.replay_loader._full:  # if buffer is not full we need to recreate the storage
-                    self.replay_loader.prefill(val._storage)
+                # # TODO:  This leads to out of RAM for now (to be fixed)
+                # if not self.replay_loader._full:  # if buffer is not full we need to recreate the storage
+                #     self.replay_loader.prefill(val._storage)
                 
             else:
                 assert hasattr(self, name)
