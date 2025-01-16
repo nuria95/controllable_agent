@@ -237,7 +237,9 @@ class BaseWorkspace(tp.Generic[C]):
             # Compute fix states and zs for evaluating disagreement through time
             # self.agent.eval_states = _goals.MazeMultiGoal().get_eval_states(num_states=500).to(self.device)
             self.agent.eval_states = _goals.MazeMultiGoal().get_eval_midroom_states().to(self.device)
-            self.agent.eval_zs = self.agent.sample_z(len(self.agent.eval_states), device=self.device)    
+            self.agent.eval_zs = self.agent.sample_z(len(self.agent.eval_states), device=self.device)
+        else:
+            self.agent.eval_states = None 
 
     def _make_env(self) -> dmc.EnvWrapper:
         cfg = self.cfg
@@ -604,6 +606,8 @@ class Workspace(BaseWorkspace[PretrainConfig]):
     
     def eval_model(self) -> None:
         self.eval()
+        if 'maze' not in self.cfg.task:
+            return
         self.agent.compute_disagreement_metrics()
         xy = self.agent.eval_states[:, :2].cpu().numpy()  # num_states x 2
         # self.agent.Q1 is num_ensembles x num_states

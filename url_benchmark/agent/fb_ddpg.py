@@ -317,6 +317,8 @@ class FBDDPGAgent:
             return torch.matmul(zs[0], zs[1].T).item()
 
     def compute_disagreement_metrics(self) -> float:
+        if self.eval_states is None:
+            return {}
         with torch.no_grad():
             h = self.encoder(self.eval_states)
             acts = self.actor(h, self.eval_zs, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
