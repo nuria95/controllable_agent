@@ -39,7 +39,6 @@ from url_benchmark.in_memory_replay_buffer import ReplayBuffer
 from url_benchmark.video import TrainVideoRecorder, VideoRecorder
 from url_benchmark import agent as agents
 from url_benchmark.d4rl_benchmark import D4RLReplayBufferBuilder, D4RLWrapper
-from url_benchmark.gridworld.env import build_gridworld_task
 
 logger = logging.getLogger(__name__)
 torch.backends.cudnn.benchmark = True
@@ -136,9 +135,6 @@ C = tp.TypeVar("C", bound=Config)
 
 
 def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goals.BaseReward] = None) -> agents.MetaDict:
-    if workspace.domain == "grid":
-        assert isinstance(workspace.agent, agents.DiscreteFBAgent)
-        return workspace.agent.get_goal_meta(workspace.eval_env.get_goal_obs())
     if custom_reward is not None:
         try:  # if the custom reward implements a goal, return it
             goal = custom_reward.get_goal(workspace.cfg.goal_space)
@@ -245,8 +241,6 @@ class BaseWorkspace(tp.Generic[C]):
 
     def _make_env(self) -> dmc.EnvWrapper:
         cfg = self.cfg
-        if self.domain == "grid":
-            return dmc.EnvWrapper(build_gridworld_task(self.cfg.task.split('_')[1]))
         if self.domain == "d4rl":
             import d4rl  # type: ignore # pylint: disable=unused-import
             import gym
@@ -318,7 +312,9 @@ class BaseWorkspace(tp.Generic[C]):
         physics_agg = dmc.PhysicsAggregator()
         rewards: tp.List[float] = []
         normalized_scores: tp.List[float] = []
-        # meta = _init_eval_meta(self, custom_reward) 
+        # For goal-reaching tasks:
+        if self.cfg.goal_space is not None:
+            meta = _init_eval_meta(self)
         z_correl = 0.0
         is_d4rl_task = self.cfg.task.split('_')[0] == 'd4rl'
         actor_success: tp.List[float] = []
@@ -329,8 +325,6 @@ class BaseWorkspace(tp.Generic[C]):
             custom_reward = self._make_custom_reward(seed=seed)
             if custom_reward is not None:
                 meta = _init_eval_meta(self, custom_reward)
-            if self.domain == "grid":
-                meta = _init_eval_meta(self)
             total_reward = 0.0
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
             while not time_step.last():
