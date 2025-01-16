@@ -141,8 +141,11 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
             return workspace.agent.get_goal_meta(goal)
         except Exception:  # pylint: disable=broad-exceptf
             pass
-        # we cannot fully type because of the FBBDPG string check :s
+        # TODO Assuming fix episode length:
         num_steps = workspace.agent.cfg.num_inference_steps  # type: ignore
+        if len(workspace.replay_loader) * workspace.replay_loader._episodes_length[0] < num_steps: 
+            # print("Not enough data for inference, skipping eval")
+            return None
         obs_list, reward_list = [], []
         batch_size = 0
         while batch_size < num_steps:
@@ -314,8 +317,8 @@ class BaseWorkspace(tp.Generic[C]):
         physics_agg = dmc.PhysicsAggregator()
         rewards: tp.List[float] = []
         normalized_scores: tp.List[float] = []
-        # For goal-reaching tasks:
-        if self.cfg.goal_space is not None:
+        # For goal-reaching tasks (goal space + no custom_reward)
+        if self.cfg.goal_space is not None and self.cfg.custom_reward is None:
             meta = _init_eval_meta(self)
         z_correl = 0.0
         is_d4rl_task = self.cfg.task.split('_')[0] == 'd4rl'
@@ -327,6 +330,8 @@ class BaseWorkspace(tp.Generic[C]):
             custom_reward = self._make_custom_reward(seed=seed)
             if custom_reward is not None:
                 meta = _init_eval_meta(self, custom_reward)
+                if meta is None: # not enough data to perform z inference
+                    return
             total_reward = 0.0
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
             while not time_step.last():
