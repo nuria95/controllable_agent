@@ -18,6 +18,7 @@ discount: 0.98
 agent:
   batch_size: 256
   z_dim: 50
+  one_target: False
 num_eval_episodes: 10
 hydra:
   run:
