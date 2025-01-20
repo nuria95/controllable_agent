@@ -14,6 +14,8 @@ warmup: false
 seed: 0
 experiment: test_cheetah
 discount: 0.98
+num_train_frames: 2000010
+
 agent:
   batch_size: 256
   z_dim: 50
