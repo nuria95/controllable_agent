@@ -158,7 +158,7 @@ class EnsembleMLP(nn.Module):
     def __init__(self, f_dict, n_ensemble, device='cuda'):
         super().__init__()
         # needs to be a nn.module list otw we cannot do ensemble.state_dict or optimzie over its params!
-        ensemble = nn.ModuleList([deepcopy(ForwardMap(**f_dict).to(device)) for _ in range(n_ensemble)])
+        ensemble = nn.ModuleList([ForwardMap(**f_dict).to(device) for _ in range(n_ensemble)])
         # let’s combine the states of the model together by stacking each
         # parameter. For example, ``model[i].fc1.weight`` has shape ``[784, 128]``; we are
         # going to stack the ``.fc1.weight`` of each of the 10 models to produce a big

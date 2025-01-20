@@ -80,6 +80,7 @@ class FBDDPGAgentConfig:
     additional_metric: bool = False
     add_trunk: bool = False
     uncertainty: bool = omegaconf.II("uncertainty")
+    one_target: bool = False
     n_ensemble: int = 5
 
 
@@ -142,9 +143,12 @@ class FBDDPGAgent:
         if not cfg.uncertainty:
             self.forward_target_net = ForwardMap(**f_dict).to(cfg.device)
         else:
-            self.forward_target_net = EnsembleMLP(f_dict, n_ensemble=self.cfg.n_ensemble, device=cfg.device) 
+            self.forward_target_net = EnsembleMLP(f_dict, n_ensemble=self.cfg.n_ensemble, device=cfg.device)
         # load the weights into the target networks
         self.forward_target_net.load_state_dict(self.forward_net.state_dict())
+        if cfg.one_target and cfg.uncertainty:
+            # Initialise target params for each ensemble member to the mean of the forward_net
+            utils.soft_update_params_mean(self.forward_net, self.forward_target_net, tau=1.0)
         self.backward_target_net.load_state_dict(self.backward_net.state_dict())
         # optimizers
         self.encoder_opt: tp.Optional[torch.optim.Adam] = None
@@ -583,8 +587,12 @@ class FBDDPGAgent:
         metrics.update(self.compute_disagreement_metrics())
 
         # update critic target
-        utils.soft_update_params(self.forward_net, self.forward_target_net,
-                                 self.cfg.fb_target_tau)
+        if self.cfg.one_target and self.cfg.uncertainty:
+            utils.soft_update_params_mean(self.forward_net, self.forward_target_net,
+                                          self.cfg.fb_target_tau)
+        else:
+            utils.soft_update_params(self.forward_net, self.forward_target_net,
+                                     self.cfg.fb_target_tau)
         utils.soft_update_params(self.backward_net, self.backward_target_net,
                                  self.cfg.fb_target_tau)
         return metrics

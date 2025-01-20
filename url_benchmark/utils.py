@@ -69,6 +69,14 @@ def soft_update_params(net, target_net, tau) -> None:
                                 (1 - tau) * target_param.data)
 
 
+# update target network to the MEAN of the ensemble network       
+def soft_update_params_mean(net, target_net, tau) -> None:
+    for param, target_param in zip(net.parameters(), target_net.parameters()):
+        soft_mean_target = param.data.mean(0)
+        target_param.data.copy_(tau * soft_mean_target +
+                                (1 - tau) * target_param.data)
+
+
 def hard_update_params(net, target_net) -> None:
     for param, target_param in zip(net.parameters(), target_net.parameters()):
         target_param.data.copy_(param.data)
