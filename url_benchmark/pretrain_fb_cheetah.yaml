@@ -19,6 +19,7 @@ num_train_frames: 2000010
 agent:
   batch_size: 256
   z_dim: 50
+  num_inference_steps: 10000
 num_eval_episodes: 10
 hydra:
   run:
