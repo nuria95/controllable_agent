@@ -350,7 +350,8 @@ class FBDDPGAgent:
         next_obs: torch.Tensor,
         next_goal: torch.Tensor,
         z: torch.Tensor,
-        step: int
+        step: int,
+        goal: torch.Tensor,
     ) -> tp.Dict[str, float]:
         metrics: tp.Dict[str, float] = {}
         # compute target successor measure
@@ -363,8 +364,8 @@ class FBDDPGAgent:
                 dist = self.actor(next_obs, z, stddev)
                 next_action = dist.sample(clip=self.cfg.stddev_clip)
             # target_F1, target_F2 = torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0'), torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0') #self.forward_target_net((next_obs, z, next_action))  # batch x z_dim
-            target_F1, target_F2 = self.forward_target_net((next_obs, z, next_action))  # batch x z_dim
-            target_B = self.backward_target_net(next_goal)  # batch x z_dim
+            target_F1, target_F2 = self.forward_target_net((next_obs, z, next_action))  # e? x batch x z_dim
+            target_B = self.backward_target_net(goal)  # batch x z_dim
             if not self.cfg.uncertainty:
                 target_M1 = torch.einsum('sd, td -> st', target_F1, target_B)  # batch x batch
                 target_M2 = torch.einsum('sd, td -> st', target_F2, target_B)  # batch x batch
@@ -376,7 +377,7 @@ class FBDDPGAgent:
         # compute FB loss
         # F1, F2 = torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0'), torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0') #self.forward_net((obs, z, action))  # batch x z_dim
         F1, F2 = self.forward_net((obs, z, action))  # batch x z_dim
-        B = self.backward_net(next_goal)  # batch x z_dim
+        B = self.backward_net(goal)  # batch x z_dim
         if not self.cfg.uncertainty:
             M1 = torch.einsum('sd, td -> st', F1, B)  # batch x batch
             M2 = torch.einsum('sd, td -> st', F2, B)  # batch x batch
@@ -395,9 +396,6 @@ class FBDDPGAgent:
             # this one seems to be quite costly
             scaled_T = discount * target_M
             fb_offdiag: tp.Any = 1/(2*self.cfg.n_ensemble) * sum(sum((M - scaled_T)[E_indices, off_diag].pow(2).mean(-1) for M in [M1, M2]))
-            # fb_offdiag1: tp.Any = (M1 - scaled_T)[E_indices, off_diag].pow(2).mean(-1) # e x 1
-            # fb_offdiag2: tp.Any = (M2 - scaled_T)[E_indices, off_diag].pow(2).mean(-1)
-            # fb_offdiag = 0.5 * (fb_offdiag1 + fb_offdiag2).sum()
             # M.diagonal(dim1=-2, dim2=-1) returns diagonals over every ensemble so size is: E x batch
             # then we average over B and sum over E and over M1 and M2
             fb_diag: tp.Any = -sum(sum(M.diagonal(dim1=-2, dim2=-1).mean(-1) for M in [M1, M2]))
@@ -526,8 +524,8 @@ class FBDDPGAgent:
         batch = replay_loader.sample(self.cfg.batch_size)
         batch = batch.to(self.cfg.device)
 
-        # pdb.set_trace()
         obs = batch.obs
+        goal = batch.obs
         action = batch.action
         discount = batch.discount
         next_obs = next_goal = batch.next_obs
@@ -549,6 +547,7 @@ class FBDDPGAgent:
                 batch.goal = batch.obs[:, :2]
             assert batch.goal is not None
             backward_input = batch.goal
+            goal = batch.goal
             future_goal = batch.future_goal
 
         perm = torch.randperm(self.cfg.batch_size)
@@ -579,7 +578,8 @@ class FBDDPGAgent:
             z[future_idxs] = self.backward_net(future_goal[future_idxs]).detach()
 
         metrics.update(self.update_fb(obs=obs, action=action, discount=discount,
-                                      next_obs=next_obs, next_goal=next_goal, z=z, step=step))
+                                      next_obs=next_obs, next_goal=next_goal, z=z, step=step,
+                                      goal=goal))
 
         # update actor
         metrics.update(self.update_actor(obs, z, step))
