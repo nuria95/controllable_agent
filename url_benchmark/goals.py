@@ -104,6 +104,14 @@ def simplified_quadruped(env: dmc.EnvWrapper) -> np.ndarray:
                      np.linalg.norm(env.physics.torso_velocity())],
                     dtype=np.float32)
 
+@goal_spaces("quadruped")
+def simplified_quadruped_velx(env: dmc.EnvWrapper) -> np.ndarray:
+    # check the physics here:
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/quadruped.py#L145
+    return np.array([env.physics.torso_upright(),
+                     env.physics.torso_velocity()[0]],
+                    dtype=np.float32)
+
 
 @goal_spaces("quadruped")
 def quad_pos_speed(env: dmc.EnvWrapper) -> np.ndarray:
@@ -157,6 +165,10 @@ def quadruped_walk() -> np.ndarray:
 @goals("simplified_quadruped")
 def quadruped_run() -> np.ndarray:
     return np.array([1.0, 6], dtype=np.float32)
+
+@goals("simplified_quadruped_velx")
+def quadruped_walk() -> np.ndarray:
+    return np.array([1.0, 0.6], dtype=np.float32)
 
 
 @goals("quadruped_positions")

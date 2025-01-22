@@ -6,7 +6,7 @@ defaults:
 
 
 task: quadruped_walk
-goal_space: simplified_quadruped
+goal_space: simplified_quadruped_velx
 append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
