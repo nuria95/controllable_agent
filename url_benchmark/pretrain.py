@@ -606,7 +606,7 @@ class Workspace(BaseWorkspace[Config]):
         plt.show()
 
 
-@hydra.main(config_path='.', config_name='base_config', version_base="1.1")
+@hydra.main(config_path='configs', config_name='base_config', version_base="1.1")
 def main(cfg: omgcf.DictConfig) -> None:
     breakpoint()
     # we assume cfg is a PretrainConfig (but actually not really)
