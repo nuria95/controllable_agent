@@ -103,6 +103,7 @@ def upside(time_limit: int = _DEFAULT_TIME_LIMIT,
            random=None,
            environment_kwargs=None):
     """Returns the Run task."""
+    print('This would enforce a reward that is not aligned with the goal!')
     physics = Physics.from_xml_string(*get_model_and_assets())
     task = PlanarWalker(move_speed=_RUN_SPEED,
                         forward=True,
