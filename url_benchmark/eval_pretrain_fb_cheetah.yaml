@@ -1,5 +1,5 @@
 defaults:
-  - workspace_config
+  - workspace_config # this is to load the config in pretrain.py
   - agent: fb_ddpg
   - override hydra/launcher: submitit_slurm
   - _self_

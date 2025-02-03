@@ -14,7 +14,6 @@ import torch
 import wandb
 from termcolor import colored
 from torch.utils.tensorboard import SummaryWriter
-from url_benchmark.hiplogs import HipLog
 
 
 Formating = tp.List[tp.Tuple[str, str, str]]
@@ -144,7 +143,7 @@ class MetersGroup:
 
 
 class Logger:
-    def __init__(self, log_dir: Path, use_tb: bool, use_wandb: bool, use_hiplog: bool) -> None:
+    def __init__(self, log_dir: Path, use_tb: bool, use_wandb: bool) -> None:
         self._log_dir = log_dir
 
         self._train_mg = MetersGroup(log_dir / 'train.csv',
@@ -154,10 +153,6 @@ class Logger:
                                     formating=COMMON_EVAL_FORMAT,
                                     use_wandb=use_wandb)
         self._sw: tp.Optional[SummaryWriter] = None
-        # self.hiplog: tp.Optional[HipLog] = None
-        self.use_hiplog = use_hiplog
-        if use_hiplog:
-            self.hiplog = HipLog(log_dir / "hip.log")
         if use_tb:
             self._sw = SummaryWriter(str(log_dir / 'tb'))
         self.use_wandb = use_wandb
@@ -173,8 +168,6 @@ class Logger:
         self._try_sw_log(key, value, step)
         mg = self._train_mg if key.startswith('train') else self._eval_mg
         mg.log(key, value)
-        if self.use_hiplog:
-            self.hiplog(**{key: value})
 
     def log_metrics(self, metrics: tp.Dict[str, float], step: int, ty: str) -> None:
         for key, value in metrics.items():

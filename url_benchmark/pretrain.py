@@ -55,7 +55,6 @@ class Config:
     save_video: bool = False
     use_tb: bool = False
     use_wandb: bool = False
-    use_hiplog: bool = False
     # experiment
     experiment: str = "online"
     # task settings
@@ -93,9 +92,6 @@ class Config:
     working_dir: str = ""
     debug: bool = False
     eval: bool = False
-
-@dataclasses.dataclass
-class PretrainConfig(Config):
     # mode
     reward_free: bool = True
     # train settings
@@ -103,18 +99,13 @@ class PretrainConfig(Config):
     # snapshot
     eval_every_frames: int = 10000
     load_replay_buffer: tp.Optional[str] = None
-    # replay buffer
-    # replay_buffer_num_workers: int = 4
-    # nstep: int = omgcf.II("agent.nstep")
-    # misc
     save_train_video: bool = False
 
 
-# loaded as base_pretrain in pretrain.yaml
-# we keep the yaml since it's easier to configure plugins from it
-# Name the PretrainConfig as "workspace_config".
-# When we load workspace_config it in the main config, we are telling it to load: PretrainConfig.
-ConfigStore.instance().store(name="workspace_config", node=PretrainConfig)
+
+# Name the Config as "workspace_config".
+# When we load workspace_config it in the main config, we are telling it to load: Config.
+ConfigStore.instance().store(name="workspace_config", node=Config)
 
 
 # # # Implem # # #
@@ -122,7 +113,7 @@ ConfigStore.instance().store(name="workspace_config", node=PretrainConfig)
 
 def make_agent(
     obs_type: str, obs_spec, action_spec, num_expl_steps: int, cfg: omgcf.DictConfig
-) -> tp.Union[agents.FBDDPGAgent, agents.DDPGAgent]:
+) -> tp.Union[agents.FBDDPGAgent]:
     cfg.obs_type = obs_type
     cfg.obs_shape = obs_spec.shape
     cfg.action_shape = (action_spec.num_values, ) if isinstance(action_spec, specs.DiscreteArray) \
@@ -201,8 +192,7 @@ class BaseWorkspace(tp.Generic[C]):
         # create logger
         self.logger = Logger(self.work_dir,
                              use_tb=cfg.use_tb,
-                             use_wandb=cfg.use_wandb,
-                             use_hiplog=cfg.use_hiplog)
+                             use_wandb=cfg.use_wandb)
 
         if cfg.use_wandb:
             exp_name = '_'.join([
@@ -232,7 +222,7 @@ class BaseWorkspace(tp.Generic[C]):
             self.load_checkpoint(self._checkpoint_filepath)
         # This is for loading an existing model
         elif cfg.load_model is not None:
-            self.load_checkpoint(cfg.load_model) #, exclude=["replay_loader"])
+            self.load_checkpoint(cfg.load_model)  #, exclude=["replay_loader"])
 
         self.reward_cls: tp.Optional[_goals.BaseReward] = None
         if self.cfg.custom_reward == "maze_multi_goal":
@@ -310,7 +300,7 @@ class BaseWorkspace(tp.Generic[C]):
             log('success_rate', float(np.mean(successes)))
             for i, room in zip(range(0, len(successes), reward_cls.goals_per_room), range(1, 5)):
                 log(f'success_room{room}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
-        
+
     def eval(self) -> None:
         step, episode = 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
@@ -330,7 +320,7 @@ class BaseWorkspace(tp.Generic[C]):
             custom_reward = self._make_custom_reward(seed=seed)
             if custom_reward is not None:
                 meta = _init_eval_meta(self, custom_reward)
-                if meta is None: # not enough data to perform z inference
+                if meta is None:  # not enough data to perform z inference
                     return
             total_reward = 0.0
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
@@ -369,8 +359,7 @@ class BaseWorkspace(tp.Generic[C]):
             log('step', self.global_step)
             if actor_success:
                 log('actor_sucess', float(np.mean(actor_success)))
-            if isinstance(self.agent, agents.FBDDPGAgent):
-                log('z_norm', np.linalg.norm(meta['z']).item())
+            log('z_norm', np.linalg.norm(meta['z']).item())
             for key, val in physics_agg.dump():
                 log(key, val)
 
@@ -432,7 +421,6 @@ class BaseWorkspace(tp.Generic[C]):
                 # # TODO:  This leads to out of RAM for now (to be fixed)
                 # if not self.replay_loader._full:  # if buffer is not full we need to recreate the storage
                 #     self.replay_loader.prefill(val._storage)
-                
             else:
                 assert hasattr(self, name)
                 setattr(self, name, val)
@@ -479,8 +467,8 @@ class BaseWorkspace(tp.Generic[C]):
             json.dump(rewards, f)
 
 
-class Workspace(BaseWorkspace[PretrainConfig]):
-    def __init__(self, cfg: PretrainConfig) -> None:
+class Workspace(BaseWorkspace[Config]):
+    def __init__(self, cfg: Config) -> None:
         super().__init__(cfg)
         self.train_video_recorder = TrainVideoRecorder(self.work_dir if cfg.save_train_video else None,
                                                        camera_id=self.video_recorder.camera_id, use_wandb=self.cfg.use_wandb)
@@ -498,12 +486,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                 assert not cfg.warmup, "Trying to warmup without a preloaded replay buffer"
 
     def _init_meta(self, obs: np.ndarray = None):
-        if isinstance(self.agent, agents.GoalTD3Agent) and isinstance(self.reward_cls, _goals.MazeMultiGoal):
-            meta = self.agent.init_meta(self.reward_cls)
-        elif isinstance(self.agent, agents.GoalSMAgent) and len(self.replay_loader) > 0:
-            meta = self.agent.init_meta(self.replay_loader)
-        else:
-            meta = self.agent.init_meta(obs)
+        meta = self.agent.init_meta(obs)
         return meta
 
     def train(self) -> None:
@@ -526,7 +509,6 @@ class Workspace(BaseWorkspace[PretrainConfig]):
         physics_agg = dmc.PhysicsAggregator()
 
         while train_until_step(self.global_step):
-            
             # try to update the agent
             if not seed_until_step(self.global_step) and update_every_step(self.global_step):
                 if self.global_step == 0 and self.cfg.warmup:
@@ -599,8 +581,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
             episode_reward += time_step.reward
             self.replay_loader.add(time_step, meta)
             self.train_video_recorder.record(time_step.observation)
-            if isinstance(self.agent, agents.FBDDPGAgent):
-                z_correl += self.agent.compute_z_correl(time_step, meta)
+            z_correl += self.agent.compute_z_correl(time_step, meta)
             episode_step += 1
             self.global_step += 1
             # save checkpoint to reload
@@ -608,7 +589,7 @@ class Workspace(BaseWorkspace[PretrainConfig]):
                 self.save_checkpoint(self._checkpoint_filepath)
         self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
         self.finalize()
-    
+
     def eval_model(self) -> None:
         self.eval()
         if 'maze' not in self.cfg.task:
@@ -623,19 +604,19 @@ class Workspace(BaseWorkspace[PretrainConfig]):
         plt.colorbar(scatter, label="Value")  # Add a colorbar
         plt.title("Q1 std")
         plt.show()
-        
-        
 
 
 @hydra.main(config_path='.', config_name='base_config', version_base="1.1")
 def main(cfg: omgcf.DictConfig) -> None:
+    breakpoint()
     # we assume cfg is a PretrainConfig (but actually not really)
-    # calls Config and PretrainConfig
+    # calls Config and PretrainConfig
     workspace = Workspace(cfg)  # type: ignore
     if not cfg.eval:
         workspace.train()
     else:
         workspace.eval_model()
+
 
 if __name__ == '__main__':
     main()

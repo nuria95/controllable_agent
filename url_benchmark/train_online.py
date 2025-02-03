@@ -146,8 +146,6 @@ class Workspace(pretrain.BaseWorkspace[OnlinetrainConfig]):
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 self.eval()
-            if self.cfg.use_hiplog and self.logger.hiplog.content:
-                self.logger.hiplog.write()  # write to hiplog only once per episode
             # checkpoint
             self._checkpoint_if_need_be()
         self.save_checkpoint(self._checkpoint_filepath)

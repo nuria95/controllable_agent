@@ -54,21 +54,10 @@ def relabel_episode(env: tp.Any, episode: tp.Dict[str, np.ndarray], goal_func: t
         episode['goal'] = np.array(goals, dtype=np.float32)
     return episode
 
-# class ReplayBufferIterable:
-#     def __init__(self, replay_buffer: "ReplayBuffer") -> None:
-#         self._replay_buffer = replay_buffer
-#
-#     def __next__(self) -> EpisodeBatch:
-#         return self._replay_buffer.sample()
-
 
 class ReplayBuffer:
     def __init__(self,
                  max_episodes: int, discount: float, future: float, max_episode_length: tp.Optional[int] = None) -> None:
-        # data_specs: Specs,
-        # self._data_specs = tuple(data_specs)
-        # self._meta_specs = tuple(meta_specs)
-        # self._batch_size = batch_size
         self._max_episodes = max_episodes
         self._discount = discount
         assert 0 <= future <= 1
@@ -225,11 +214,3 @@ class ReplayBuffer:
                 _shape = (self._max_episode_length,) + values.shape[1:]
             self._storage[name] = np.empty((self._max_episodes,) + _shape, dtype=dtype)
             self._storage[name][:len(values)] = values
-
-    # def __iter__(self) -> ReplayBufferIterable:
-    #     ''' Returns the Iterator object '''
-    #     return ReplayBufferIterable(self)
-
-    # def __iter__(self) -> tp.Iterator[EpisodeBatch[np.ndarray]]:
-    #     while True:
-    #         yield self.sample()

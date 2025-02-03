@@ -49,7 +49,6 @@ class FBDDPGAgentConfig:
     update_every_steps: int = 2
     use_tb: bool = omegaconf.II("use_tb")  # ${use_tb}
     use_wandb: bool = omegaconf.II("use_wandb")  # ${use_wandb}
-    use_hiplog: bool = omegaconf.II("use_hiplog")  # ${use_wandb}
     num_expl_steps: int = omegaconf.MISSING  # ???  # to be specified later
     num_inference_steps: int = 5120
     hidden_dim: int = 1024   # 128, 2048
@@ -427,7 +426,7 @@ class FBDDPGAgent:
         # orth_loss =  var_loss + cov_loss
         # fb_loss += self.cfg.ortho_coef * orth_loss
 
-        if self.cfg.use_tb or self.cfg.use_wandb or self.cfg.use_hiplog:
+        if self.cfg.use_tb or self.cfg.use_wandb:
             metrics['target_M'] = target_M.mean().item()
             metrics['M1'] = M1.mean().item()
             metrics['F1'] = F1.mean().item()

@@ -59,7 +59,6 @@ class Config:
     save_video: bool = False
     use_tb: bool = False
     use_wandb: bool = False
-    use_hiplog: bool = False
     # experiment
     experiment: str = "online"
     # task settings
@@ -154,7 +153,7 @@ class BaseWorkspace(tp.Generic[C]):
         self.logger = Logger(self.work_dir,
                              use_tb=cfg.use_tb,
                              use_wandb=cfg.use_wandb,
-                             use_hiplog=cfg.use_hiplog)
+                             )
 
         if cfg.use_wandb:
             exp_name = '_'.join([

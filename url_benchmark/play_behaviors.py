@@ -70,7 +70,6 @@ class PlayConfig:
     save_train_video: bool = False
     use_tb: bool = False
     use_wandb: bool = False
-    use_hiplog: bool = False
     # experiment
     experiment: str = "exp"
 
