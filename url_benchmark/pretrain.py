@@ -608,7 +608,6 @@ class Workspace(BaseWorkspace[Config]):
 
 @hydra.main(config_path='configs', config_name='base_config', version_base="1.1")
 def main(cfg: omgcf.DictConfig) -> None:
-    breakpoint()
     # we assume cfg is a PretrainConfig (but actually not really)
     # calls Config and PretrainConfig
     workspace = Workspace(cfg)  # type: ignore

@@ -129,7 +129,7 @@ def make_model(floor_size=None, terrain: bool = False, rangefinders: bool = Fals
 
 @SUITE.add()
 def stand(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=None):
-    """Returns the Walk task."""
+    """Returns the Stand task. Not default dm"""
     xml_string = make_model(floor_size=_DEFAULT_TIME_LIMIT * _WALK_SPEED)
     physics = Physics.from_xml_string(xml_string, common.ASSETS)
     task = Stand(random=random)
@@ -141,7 +141,7 @@ def stand(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs
 
 @SUITE.add()
 def jump(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=None):
-    """Returns the Walk task."""
+    """Returns the Jump task. Not default dm"""
     xml_string = make_model(floor_size=_DEFAULT_TIME_LIMIT * _WALK_SPEED)
     physics = Physics.from_xml_string(xml_string, common.ASSETS)
     task = Jump(desired_height=_JUMP_HEIGHT, random=random)
@@ -153,7 +153,7 @@ def jump(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=
 
 @SUITE.add()
 def roll(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=None):
-    """Returns the Walk task."""
+    """Returns the Roll task. Not default dm"""
     xml_string = make_model(floor_size=_DEFAULT_TIME_LIMIT * _WALK_SPEED)
     physics = Physics.from_xml_string(xml_string, common.ASSETS)
     task = Roll(desired_speed=_WALK_SPEED, random=random)
@@ -165,7 +165,7 @@ def roll(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=
 
 @SUITE.add()
 def roll_fast(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=None):
-    """Returns the Walk task."""
+    """Returns the Roll_fast task. Not default dm"""
     xml_string = make_model(floor_size=_DEFAULT_TIME_LIMIT * _WALK_SPEED)
     physics = Physics.from_xml_string(xml_string, common.ASSETS)
     task = Roll(desired_speed=_RUN_SPEED, random=random)
@@ -175,29 +175,29 @@ def roll_fast(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kw
                                **environment_kwargs)
 
 
-@SUITE.add()
-def escape(time_limit: int = _DEFAULT_TIME_LIMIT, random=None,
-           environment_kwargs=None):
-    """Returns the Escape task."""
-    xml_string = make_model(floor_size=40, terrain=True, rangefinders=True)
-    physics = Physics.from_xml_string(xml_string, common.ASSETS)
-    task = Escape(random=random)
-    environment_kwargs = environment_kwargs or {}
-    return control.Environment(physics, task, time_limit=time_limit,
-                               control_timestep=_CONTROL_TIMESTEP,
-                               **environment_kwargs)
+# @SUITE.add()
+# def escape(time_limit: int = _DEFAULT_TIME_LIMIT, random=None,
+#            environment_kwargs=None):
+#     """Returns the Escape task."""
+#     xml_string = make_model(floor_size=40, terrain=True, rangefinders=True)
+#     physics = Physics.from_xml_string(xml_string, common.ASSETS)
+#     task = Escape(random=random)
+#     environment_kwargs = environment_kwargs or {}
+#     return control.Environment(physics, task, time_limit=time_limit,
+#                                control_timestep=_CONTROL_TIMESTEP,
+#                                **environment_kwargs)
 
 
-@SUITE.add()
-def fetch(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=None):
-    """Returns the Fetch task."""
-    xml_string = make_model(walls_and_ball=True)
-    physics = Physics.from_xml_string(xml_string, common.ASSETS)
-    task = Fetch(random=random)
-    environment_kwargs = environment_kwargs or {}
-    return control.Environment(physics, task, time_limit=time_limit,
-                               control_timestep=_CONTROL_TIMESTEP,
-                               **environment_kwargs)
+# @SUITE.add()
+# def fetch(time_limit: int = _DEFAULT_TIME_LIMIT, random=None, environment_kwargs=None):
+#     """Returns the Fetch task."""
+#     xml_string = make_model(walls_and_ball=True)
+#     physics = Physics.from_xml_string(xml_string, common.ASSETS)
+#     task = Fetch(random=random)
+#     environment_kwargs = environment_kwargs or {}
+#     return control.Environment(physics, task, time_limit=time_limit,
+#                                control_timestep=_CONTROL_TIMESTEP,
+#                                **environment_kwargs)
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -366,56 +366,55 @@ def _upright_reward(physics, deviation_angle: int = 0):
         value_at_margin=0)
 
 
-class Move(base.Task):
-    """A quadruped task solved by moving forward at a designated speed."""
+# class Move(base.Task):
+#     """A quadruped task solved by moving forward at a designated speed."""
 
-    def __init__(self, desired_speed, random=None) -> None:
-        """Initializes an instance of `Move`.
-        Args:
-          desired_speed: A float. If this value is zero, reward is given simply
-            for standing upright. Otherwise this specifies the horizontal velocity
-            at which the velocity-dependent reward component is maximized.
-          random: Optional, either a `numpy.random.RandomState` instance, an
-            integer seed for creating a new `RandomState`, or None to select a seed
-            automatically (default).
-        """
-        self._desired_speed = desired_speed
-        super().__init__(random=random)
+#     def __init__(self, desired_speed, random=None) -> None:
+#         """Initializes an instance of `Move`.
+#         Args:
+#           desired_speed: A float. If this value is zero, reward is given simply
+#             for standing upright. Otherwise this specifies the horizontal velocity
+#             at which the velocity-dependent reward component is maximized.
+#           random: Optional, either a `numpy.random.RandomState` instance, an
+#             integer seed for creating a new `RandomState`, or None to select a seed
+#             automatically (default).
+#         """
+#         self._desired_speed = desired_speed
+#         super().__init__(random=random)
 
-    def initialize_episode(self, physics) -> None:
-        """Sets the state of the environment at the start of each episode.
-        Args:
-          physics: An instance of `Physics`.
-        """
-        # Initial configuration.
-        orientation = self.random.randn(4)
-        orientation /= np.linalg.norm(orientation)
-        _find_non_contacting_height(physics, orientation)
-        super().initialize_episode(physics)
+#     def initialize_episode(self, physics) -> None:
+#         """Sets the state of the environment at the start of each episode.
+#         Args:
+#           physics: An instance of `Physics`.
+#         """
+#         # Initial configuration.
+#         orientation = self.random.randn(4)
+#         orientation /= np.linalg.norm(orientation)
+#         _find_non_contacting_height(physics, orientation)
+#         super().initialize_episode(physics)
 
-    def get_observation(self, physics) -> tp.Dict[str, Any]:
-        """Returns an observation to the agent."""
-        return _common_observations(physics)
+#     def get_observation(self, physics) -> tp.Dict[str, Any]:
+#         """Returns an observation to the agent."""
+#         return _common_observations(physics)
 
-    def get_reward(self, physics) -> Any:
-        """Returns a reward to the agent."""
+#     def get_reward(self, physics) -> Any:
+#         """Returns a reward to the agent."""
+#         # Move reward term.
+#         move_reward = rewards.tolerance(
+#             physics.torso_velocity()[0],
+#             bounds=(self._desired_speed, float('inf')),
+#             margin=self._desired_speed,
+#             value_at_margin=0.5,
+#             sigmoid='linear')
 
-        # Move reward term.
-        move_reward = rewards.tolerance(
-            physics.torso_velocity()[0],
-            bounds=(self._desired_speed, float('inf')),
-            margin=self._desired_speed,
-            value_at_margin=0.5,
-            sigmoid='linear')
-
-        return _upright_reward(physics) * move_reward
+#         return _upright_reward(physics) * move_reward
 
 
 class Stand(base.Task):
-    """A quadruped task solved by moving forward at a designated speed."""
+    """A quadruped task solved by standing."""
 
     def __init__(self, random=None) -> None:
-        """Initializes an instance of `Move`.
+        """Initializes an instance of `Stand`.
         Args:
           desired_speed: A float. If this value is zero, reward is given simply
             for standing upright. Otherwise this specifies the horizontal velocity
@@ -448,12 +447,12 @@ class Stand(base.Task):
 
 
 class Jump(base.Task):
-    """A quadruped task solved by moving forward at a designated speed."""
+    """A quadruped task solved by jumping."""
 
     def __init__(self, desired_height, random=None) -> None:
-        """Initializes an instance of `Move`.
+        """Initializes an instance of `Jump`.
         Args:
-          desired_speed: A float. If this value is zero, reward is given simply
+          desired_height: A float. If this value is zero, reward is given simply
             for standing upright. Otherwise this specifies the horizontal velocity
             at which the velocity-dependent reward component is maximized.
           random: Optional, either a `numpy.random.RandomState` instance, an
@@ -493,10 +492,10 @@ class Jump(base.Task):
 
 
 class Roll(base.Task):
-    """A quadruped task solved by moving forward at a designated speed."""
+    """A quadruped task solved by rolling."""
 
     def __init__(self, desired_speed, random=None) -> None:
-        """Initializes an instance of `Move`.
+        """Initializes an instance of `Roll`.
         Args:
           desired_speed: A float. If this value is zero, reward is given simply
             for standing upright. Otherwise this specifies the horizontal velocity
@@ -536,118 +535,118 @@ class Roll(base.Task):
         return _upright_reward(physics) * move_reward
 
 
-class Escape(base.Task):
-    """A quadruped task solved by escaping a bowl-shaped terrain."""
+# class Escape(base.Task):
+#     """A quadruped task solved by escaping a bowl-shaped terrain."""
 
-    def initialize_episode(self, physics) -> None:
-        """Sets the state of the environment at the start of each episode.
-        Args:
-          physics: An instance of `Physics`.
-        """
-        # Get heightfield resolution, assert that it is square.
-        res = physics.model.hfield_nrow[_HEIGHTFIELD_ID]
-        assert res == physics.model.hfield_ncol[_HEIGHTFIELD_ID]
-        # Sinusoidal bowl shape.
-        row_grid, col_grid = np.ogrid[-1:1:res * 1j, -1:1:res * 1j]
-        radius = np.clip(np.sqrt(col_grid**2 + row_grid**2), .04, 1)
-        bowl_shape = .5 - np.cos(2 * np.pi * radius) / 2
-        # Random smooth bumps.
-        terrain_size = 2 * physics.model.hfield_size[_HEIGHTFIELD_ID, 0]
-        bump_res = int(terrain_size / _TERRAIN_BUMP_SCALE)
-        bumps = self.random.uniform(_TERRAIN_SMOOTHNESS, 1, (bump_res, bump_res))
-        smooth_bumps = ndimage.zoom(bumps, res / float(bump_res))
-        # Terrain is elementwise product.
-        terrain = bowl_shape * smooth_bumps
-        start_idx = physics.model.hfield_adr[_HEIGHTFIELD_ID]
-        physics.model.hfield_data[start_idx:start_idx + res**2] = terrain.ravel()
-        super().initialize_episode(physics)
+#     def initialize_episode(self, physics) -> None:
+#         """Sets the state of the environment at the start of each episode.
+#         Args:
+#           physics: An instance of `Physics`.
+#         """
+#         # Get heightfield resolution, assert that it is square.
+#         res = physics.model.hfield_nrow[_HEIGHTFIELD_ID]
+#         assert res == physics.model.hfield_ncol[_HEIGHTFIELD_ID]
+#         # Sinusoidal bowl shape.
+#         row_grid, col_grid = np.ogrid[-1:1:res * 1j, -1:1:res * 1j]
+#         radius = np.clip(np.sqrt(col_grid**2 + row_grid**2), .04, 1)
+#         bowl_shape = .5 - np.cos(2 * np.pi * radius) / 2
+#         # Random smooth bumps.
+#         terrain_size = 2 * physics.model.hfield_size[_HEIGHTFIELD_ID, 0]
+#         bump_res = int(terrain_size / _TERRAIN_BUMP_SCALE)
+#         bumps = self.random.uniform(_TERRAIN_SMOOTHNESS, 1, (bump_res, bump_res))
+#         smooth_bumps = ndimage.zoom(bumps, res / float(bump_res))
+#         # Terrain is elementwise product.
+#         terrain = bowl_shape * smooth_bumps
+#         start_idx = physics.model.hfield_adr[_HEIGHTFIELD_ID]
+#         physics.model.hfield_data[start_idx:start_idx + res**2] = terrain.ravel()
+#         super().initialize_episode(physics)
 
-        # If we have a rendering context, we need to re-upload the modified
-        # heightfield data.
-        if physics.contexts:
-            with physics.contexts.gl.make_current() as ctx:
-                ctx.call(mjlib.mjr_uploadHField,
-                         physics.model.ptr,
-                         physics.contexts.mujoco.ptr,
-                         _HEIGHTFIELD_ID)
+#         # If we have a rendering context, we need to re-upload the modified
+#         # heightfield data.
+#         if physics.contexts:
+#             with physics.contexts.gl.make_current() as ctx:
+#                 ctx.call(mjlib.mjr_uploadHField,
+#                          physics.model.ptr,
+#                          physics.contexts.mujoco.ptr,
+#                          _HEIGHTFIELD_ID)
 
-        # Initial configuration.
-        orientation = self.random.randn(4)
-        orientation /= np.linalg.norm(orientation)
-        _find_non_contacting_height(physics, orientation)
+#         # Initial configuration.
+#         orientation = self.random.randn(4)
+#         orientation /= np.linalg.norm(orientation)
+#         _find_non_contacting_height(physics, orientation)
 
-    def get_observation(self, physics) -> tp.Dict[str, Any]:
-        """Returns an observation to the agent."""
-        obs = _common_observations(physics)
-        obs['origin'] = physics.origin()
-        obs['rangefinder'] = physics.rangefinder()
-        return obs
+#     def get_observation(self, physics) -> tp.Dict[str, Any]:
+#         """Returns an observation to the agent."""
+#         obs = _common_observations(physics)
+#         obs['origin'] = physics.origin()
+#         obs['rangefinder'] = physics.rangefinder()
+#         return obs
 
-    def get_reward(self, physics) -> Any:
-        """Returns a reward to the agent."""
+#     def get_reward(self, physics) -> Any:
+#         """Returns a reward to the agent."""
 
-        # Escape reward term.
-        terrain_size = physics.model.hfield_size[_HEIGHTFIELD_ID, 0]
-        escape_reward = rewards.tolerance(
-            physics.origin_distance(),
-            bounds=(terrain_size, float('inf')),
-            margin=terrain_size,
-            value_at_margin=0,
-            sigmoid='linear')
+#         # Escape reward term.
+#         terrain_size = physics.model.hfield_size[_HEIGHTFIELD_ID, 0]
+#         escape_reward = rewards.tolerance(
+#             physics.origin_distance(),
+#             bounds=(terrain_size, float('inf')),
+#             margin=terrain_size,
+#             value_at_margin=0,
+#             sigmoid='linear')
 
-        return _upright_reward(physics, deviation_angle=20) * escape_reward
+#         return _upright_reward(physics, deviation_angle=20) * escape_reward
 
 
-class Fetch(base.Task):
-    """A quadruped task solved by bringing a ball to the origin."""
+# class Fetch(base.Task):
+#     """A quadruped task solved by bringing a ball to the origin."""
 
-    def initialize_episode(self, physics) -> None:
-        """Sets the state of the environment at the start of each episode.
-        Args:
-          physics: An instance of `Physics`.
-        """
-        # Initial configuration, random azimuth and horizontal position.
-        azimuth = self.random.uniform(0, 2 * np.pi)
-        orientation = np.array((np.cos(azimuth / 2), 0, 0, np.sin(azimuth / 2)))
-        spawn_radius = 0.9 * physics.named.model.geom_size['floor', 0]
-        x_pos, y_pos = self.random.uniform(-spawn_radius, spawn_radius, size=(2,))
-        _find_non_contacting_height(physics, orientation, x_pos, y_pos)
+#     def initialize_episode(self, physics) -> None:
+#         """Sets the state of the environment at the start of each episode.
+#         Args:
+#           physics: An instance of `Physics`.
+#         """
+#         # Initial configuration, random azimuth and horizontal position.
+#         azimuth = self.random.uniform(0, 2 * np.pi)
+#         orientation = np.array((np.cos(azimuth / 2), 0, 0, np.sin(azimuth / 2)))
+#         spawn_radius = 0.9 * physics.named.model.geom_size['floor', 0]
+#         x_pos, y_pos = self.random.uniform(-spawn_radius, spawn_radius, size=(2,))
+#         _find_non_contacting_height(physics, orientation, x_pos, y_pos)
 
-        # Initial ball state.
-        physics.named.data.qpos['ball_root'][:2] = self.random.uniform(
-            -spawn_radius, spawn_radius, size=(2,))
-        physics.named.data.qpos['ball_root'][2] = 2
-        physics.named.data.qvel['ball_root'][:2] = 5 * self.random.randn(2)
-        super().initialize_episode(physics)
+#         # Initial ball state.
+#         physics.named.data.qpos['ball_root'][:2] = self.random.uniform(
+#             -spawn_radius, spawn_radius, size=(2,))
+#         physics.named.data.qpos['ball_root'][2] = 2
+#         physics.named.data.qvel['ball_root'][:2] = 5 * self.random.randn(2)
+#         super().initialize_episode(physics)
 
-    def get_observation(self, physics) -> tp.Dict[str, Any]:
-        """Returns an observation to the agent."""
-        obs = _common_observations(physics)
-        obs['ball_state'] = physics.ball_state()
-        obs['target_position'] = physics.target_position()
-        return obs
+#     def get_observation(self, physics) -> tp.Dict[str, Any]:
+#         """Returns an observation to the agent."""
+#         obs = _common_observations(physics)
+#         obs['ball_state'] = physics.ball_state()
+#         obs['target_position'] = physics.target_position()
+#         return obs
 
-    def get_reward(self, physics) -> Any:
-        """Returns a reward to the agent."""
+#     def get_reward(self, physics) -> Any:
+#         """Returns a reward to the agent."""
 
-        # Reward for moving close to the ball.
-        arena_radius = physics.named.model.geom_size['floor', 0] * np.sqrt(2)
-        workspace_radius = physics.named.model.site_size['workspace', 0]
-        ball_radius = physics.named.model.geom_size['ball', 0]
-        reach_reward = rewards.tolerance(
-            physics.self_to_ball_distance(),
-            bounds=(0, workspace_radius + ball_radius),
-            sigmoid='linear',
-            margin=arena_radius, value_at_margin=0)
+#         # Reward for moving close to the ball.
+#         arena_radius = physics.named.model.geom_size['floor', 0] * np.sqrt(2)
+#         workspace_radius = physics.named.model.site_size['workspace', 0]
+#         ball_radius = physics.named.model.geom_size['ball', 0]
+#         reach_reward = rewards.tolerance(
+#             physics.self_to_ball_distance(),
+#             bounds=(0, workspace_radius + ball_radius),
+#             sigmoid='linear',
+#             margin=arena_radius, value_at_margin=0)
 
-        # Reward for bringing the ball to the target.
-        target_radius = physics.named.model.site_size['target', 0]
-        fetch_reward = rewards.tolerance(
-            physics.ball_to_target_distance(),
-            bounds=(0, target_radius),
-            sigmoid='linear',
-            margin=arena_radius, value_at_margin=0)
+#         # Reward for bringing the ball to the target.
+#         target_radius = physics.named.model.site_size['target', 0]
+#         fetch_reward = rewards.tolerance(
+#             physics.ball_to_target_distance(),
+#             bounds=(0, target_radius),
+#             sigmoid='linear',
+#             margin=arena_radius, value_at_margin=0)
 
-        reach_then_fetch = reach_reward * (0.5 + 0.5 * fetch_reward)
+#         reach_then_fetch = reach_reward * (0.5 + 0.5 * fetch_reward)
 
-        return _upright_reward(physics) * reach_then_fetch
+#         return _upright_reward(physics) * reach_then_fetch

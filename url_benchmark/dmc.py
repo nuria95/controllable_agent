@@ -360,6 +360,7 @@ def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed,
                          environment_kwargs=dict(flat_observation=True),
                          visualize_reward=visualize_reward)
     else:
+        #  only use customized dmc in case task is not in default dmc! (jump, roll, stand...)
         env = cdmc.make(domain,
                         task,
                         task_kwargs=dict(random=seed),
