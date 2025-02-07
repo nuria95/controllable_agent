@@ -18,7 +18,7 @@ warmup: false
 seed: 0
 experiment: offline_quadruped
 discount: 0.98
-num_train_frames: 2000010
+num_grad_steps: 1000000
 
 agent:
   batch_size: 256
