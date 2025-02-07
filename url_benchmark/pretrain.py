@@ -104,7 +104,7 @@ class Config:
 
 
 # Name the Config as "workspace_config".
-# When we load workspace_config it in the main config, we are telling it to load: Config.
+# When we load workspace_config in the main config, we are telling it to load: Config.
 ConfigStore.instance().store(name="workspace_config", node=Config)
 
 
@@ -154,6 +154,7 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
         if workspace.cfg.task in funcs:
             g = funcs[workspace.cfg.task]()
             return workspace.agent.get_goal_meta(g)
+    print('\n***\n inferring eval meta from replay buffer :s\n***\n')
     return workspace.agent.infer_meta(workspace.replay_loader)
 
 

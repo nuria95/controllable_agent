@@ -6,21 +6,22 @@ defaults:
 
 
 task: quadruped_stand
-goal_space: simplified_quadruped
+goal_space: simplified_quadruped_velx
+custom_reward: quadruped_stand
 append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: test_quadruped
+experiment: eval_quadruped_stand
 discount: 0.98
 agent:
   batch_size: 256
   z_dim: 50
 num_eval_episodes: 10
 eval: true
-load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_quadruped/0/models/latest.pt
+load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_quadruped_modgoal_velx_rew/1/models/latest.pt
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}

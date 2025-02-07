@@ -37,10 +37,11 @@ def load_episode(fn: Path) -> tp.Dict[str, np.ndarray]:
     return episode  # type: ignore
 
 
-def relabel_episode(env: tp.Any, episode: tp.Dict[str, np.ndarray], goal_func: tp.Any) -> tp.Dict[str, np.ndarray]:
+def relabel_episode(env: tp.Any, episode: tp.Dict[str, np.ndarray], goal_func: tp.Any, append_goal_to_observation: bool = False) -> tp.Dict[str, np.ndarray]:
     goals = []
     rewards = []
     states = episode['physics']
+    observations = []
     for i in range(states.shape[0]):
         with env.physics.reset_context():
             env.physics.set_state(states[i])
@@ -48,10 +49,16 @@ def relabel_episode(env: tp.Any, episode: tp.Dict[str, np.ndarray], goal_func: t
         reward = np.full((1,), reward, dtype=np.float32)
         rewards.append(reward)
         if goal_func is not None:
-            goals.append(goal_func(env))
+            goal = goal_func(env)
+            goals.append(goal)
+        if append_goal_to_observation:
+            k = "observation"
+            observations.append(np.concatenate([episode[k][i], goal], axis=0))
     episode['reward'] = np.array(rewards, dtype=np.float32)
     if goals:
         episode['goal'] = np.array(goals, dtype=np.float32)
+    if append_goal_to_observation:
+        episode['observation'] = np.array(observations, dtype=np.float32)
     return episode
 
 
@@ -178,14 +185,15 @@ class ReplayBuffer:
                             next_obs=next_obs, next_goal=next_goal,
                             future_obs=future_obs, future_goal=future_goal, meta=meta, **additional)
 
-    def load(self, env: tp.Any, replay_dir: Path, relabel: bool = True, goal_func: tp.Any = None) -> None:
+    def load(self, env: tp.Any, replay_dir: Path, relabel: bool = True, goal_func: tp.Any = None, append_goal_to_observation: bool = False) -> None:
         eps_fns = sorted(replay_dir.glob('*.npz'))
+        assert len(eps_fns) >= self._max_episodes, f'There is not enough episodes in directory: current {len(eps_fns)} vs desired {self._max_episodes}'
         for eps_fn in tqdm(eps_fns):
             if self._full:
                 break
             episode = load_episode(eps_fn)
             if relabel:
-                episode = relabel_episode(env, episode, goal_func)
+                episode = relabel_episode(env, episode, goal_func, append_goal_to_observation)
             # for field in dataclasses.fields(TimeStep):
             for name, values in episode.items():
                 # values = episode[field.name]
@@ -195,6 +203,8 @@ class ReplayBuffer:
                 self._storage[name][self._idx] = np.array(values, dtype=np.float32)
             self._idx = (self._idx + 1) % self._max_episodes
             self._full = self._full or self._idx == 0
+        print('Final size of buffer', len(self), 'vs desired size', self._max_episodes)
+        assert len(self) == self._max_episodes, f'Mismatch between replay buffer size and desired one {len(self)} vs {self._max_episodes}'
 
     def relabel(self, custom_reward) -> None:
 

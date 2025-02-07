@@ -4,9 +4,11 @@ defaults:
   - override hydra/launcher: submitit_slurm
   - _self_
 
-
+# used with train_offline.py and withouth load_replay buffer!
 task: quadruped_walk
 goal_space: simplified_quadruped
+replay_buffer_episodes: 1000 # how much episodes use from the 'expl_agent' buffer
+expl_agent: rnd
 custom_reward: quadruped_walk
 append_goal_to_observation: True
 uncertainty: True
@@ -14,7 +16,7 @@ eval_every_frames: 10000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: test_quadruped
+experiment: offline_quadruped
 discount: 0.98
 num_train_frames: 2000010
 

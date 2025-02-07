@@ -47,7 +47,7 @@ class OfflineConfig(pretrain.Config):
     # dataset
     load_replay_buffer: tp.Optional[str] = None
     expl_agent: str = "proto"
-    replay_buffer_dir: str = omgcf.SI("../../../../datasets")  # make sure to update this if you change hydra run dir
+    replay_buffer_dir: str = omgcf.SI("../../../datasets")  # make sure to update this if you change hydra run dir
     # misc
     experiment: str = "offline"
     reward_free: bool = False
@@ -65,17 +65,14 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         replay_dir = datasets_dir.resolve() / self.domain / cfg.expl_agent / 'buffer'
         print(f'replay dir: {replay_dir}')
 
-        # self.replay_loader = ReplayBuffer([],  # self._data_specs, [],  # meta_specs = []
-        #                                   cfg.batch_size, cfg.replay_buffer_episodes,
-        #                                   cfg.discount, True)
-
         if self.cfg.load_replay_buffer is not None:
             print("loading Replay from %s", self.cfg.load_replay_buffer)
             self.load_checkpoint(self.cfg.load_replay_buffer, only=["replay_loader"])
             if self.cfg.visualize_data: self.visualize_data()
 
         else:
-            relabeled_replay_file_path = replay_dir / f"../relabeled_replay_{cfg.task}_{cfg.replay_buffer_episodes}.pt"
+            goalappended = '_appendgoal' if cfg.append_goal_to_observation else ''
+            relabeled_replay_file_path = replay_dir / f"../replay_{cfg.task}_{cfg.replay_buffer_episodes}_{cfg.replay_buffer_episodes}_{cfg.goal_space}{goalappended}.pt"
             if relabeled_replay_file_path.exists():
                 print("loading Replay from %s", relabeled_replay_file_path.resolve())
                 self.load_checkpoint(relabeled_replay_file_path, only=["replay_loader"])
@@ -84,18 +81,16 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
             else:
                 print("loading and relabeling...")
                 goal_func = None if cfg.goal_space is None else _goals.goal_spaces.funcs[self.domain][cfg.goal_space]
-                self.replay_loader.load(self.train_env, replay_dir, relabel=True, goal_func=goal_func)
+                self.replay_loader.load(self.train_env, replay_dir, relabel=True,
+                                        goal_func=goal_func, append_goal_to_observation=cfg.append_goal_to_observation)
                 print("loading is done")
                 with relabeled_replay_file_path.open('wb') as f:
                     torch.save(self.replay_loader, f)
-
         self.replay_loader._future = cfg.future
         self.replay_loader._discount = cfg.discount
-        # self.replay_loader._full = True
+        # If one loads from a build_buffer.py dataset, this is still necessary, to adjust len(),
+        # rest like _full=True, _idx=0 is already set to correct values.
         self.replay_loader._max_episodes = len(self.replay_loader._storage["discount"])
-
-        if isinstance(self.agent, agents.GoalTD3Agent) and self.agent.cfg.fb_reward:
-            self.agent.precompute_cov(self.replay_loader)
 
     def train(self):
         train_until_step = utils.Until(self.cfg.num_grad_steps)
@@ -111,10 +106,7 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
                 else:
                     self.eval()
 
-            if isinstance(self.agent, agents.GoalTD3Agent):
-                metrics = self.agent.update(self.replay_loader, self.global_step, self.reward_cls)
-            else:
-                metrics = self.agent.update(self.replay_loader, self.global_step)
+            metrics = self.agent.update(self.replay_loader, self.global_step)
             self.logger.log_metrics(metrics, self.global_step, ty='train')
             if log_every_step(self.global_step):
                 elapsed_time, total_time = self.timer.reset()
@@ -147,10 +139,9 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         os.makedirs(save_dir, exist_ok=True)
         plt.savefig(filename_dir, dpi=100)
         print('Saved dataset figure in ', filename_dir)
-        exit()
 
 
-@hydra.main(config_path='.', config_name='base_config', version_base="1.1")
+@hydra.main(config_path='configs', config_name='base_config', version_base="1.1")
 def main(cfg: omgcf.DictConfig) -> None:
     workspace = Workspace(cfg)  # type: ignore
     # for _ in range(10):
