@@ -28,6 +28,7 @@ torch.backends.cudnn.benchmark = True
 
 from pathlib import Path
 import sys
+import numpy as np
 base = Path(__file__).absolute().parents[1]
 for fp in [base, base / "url_benchmark"]:
     assert fp.exists()
@@ -85,12 +86,15 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
                                         goal_func=goal_func, append_goal_to_observation=cfg.append_goal_to_observation)
                 print("loading is done")
                 with relabeled_replay_file_path.open('wb') as f:
+                    print('Saved relabeled replay buffer to ', relabeled_replay_file_path)
                     torch.save(self.replay_loader, f)
         self.replay_loader._future = cfg.future
         self.replay_loader._discount = cfg.discount
         # If one loads from a build_buffer.py dataset, this is still necessary, to adjust len(),
         # rest like _full=True, _idx=0 is already set to correct values.
         self.replay_loader._max_episodes = len(self.replay_loader._storage["discount"])
+        self.replay_loader._current_episode.clear()
+        self.replay_loader._episodes_length = np.array([len(array) - 1 for array in self.replay_loader._storage["discount"]], dtype=np.int32)    
 
     def train(self):
         train_until_step = utils.Until(self.cfg.num_grad_steps)
