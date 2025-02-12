@@ -303,66 +303,81 @@ class BaseWorkspace(tp.Generic[C]):
                 log(f'success_room{room}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
 
     def eval(self) -> None:
-        step, episode = 0, 0
-        eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
-        physics_agg = dmc.PhysicsAggregator()
-        rewards: tp.List[float] = []
-        normalized_scores: tp.List[float] = []
-        # For goal-reaching tasks (goal space + no custom_reward)
-        if self.cfg.goal_space is not None and self.cfg.custom_reward is None:
-            meta = _init_eval_meta(self)
-        z_correl = 0.0
-        is_d4rl_task = self.cfg.task.split('_')[0] == 'd4rl'
-        actor_success: tp.List[float] = []
-        while eval_until_episode(episode):
-            time_step = self.eval_env.reset()
-            # create custom reward if need be (if field exists)
-            seed = 12 * self.cfg.num_eval_episodes + len(rewards)
-            custom_reward = self._make_custom_reward(seed=seed)
-            if custom_reward is not None:
-                meta = _init_eval_meta(self, custom_reward)
-                if meta is None:  # not enough data to perform z inference
-                    return
-            total_reward = 0.0
-            self.video_recorder.init(self.eval_env, enabled=(episode == 0))
-            while not time_step.last():
-                with torch.no_grad(), utils.eval_mode(self.agent):
-                    action = self.agent.act(time_step.observation,
-                                            meta,
-                                            self.global_step,
-                                            eval_mode=True)
-                time_step = self.eval_env.step(action)
-                physics_agg.add(self.eval_env)
-                self.video_recorder.record(self.eval_env)
-                if self.agent.cfg.additional_metric:
-                    z_correl += self.agent.compute_z_correl(time_step, meta)
-                    actor_success.extend(self.agent.actor_success)
-                if custom_reward is not None:
-                    time_step.reward = custom_reward.from_env(self.eval_env)
-                total_reward += time_step.reward
-                step += 1
-            if is_d4rl_task:
-                normalized_scores.append(self.eval_env.get_normalized_score(total_reward))
-            rewards.append(total_reward)
-            episode += 1
-            self.video_recorder.save(f'{self.global_frame}.mp4')
-
-        self.eval_rewards_history.append(float(np.mean(rewards)))
+        domain_tasks = {
+                "cheetah": ['walk', 'walk_backward', 'run', 'run_backward'],
+                "quadruped": ['stand', 'walk', 'run', 'jump'],
+                "walker": ['stand', 'walk', 'run', 'flip'],
+            }
+        # Test if enough data to compute meta from samples, otw quit already!
+        custom_reward = self._make_custom_reward(seed=0)
+        if custom_reward is not None:
+            meta = _init_eval_meta(self, custom_reward)
+            if meta is None:  # not enough data to perform z inference
+                return
+        # add log_and_dump here to ensure csv_file has all the fields (columns)!
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            if is_d4rl_task:
-                log('episode_normalized_score', float(100 * np.mean(normalized_scores)))
-            log('episode_reward', self.eval_rewards_history[-1])
-            if len(rewards) > 1:
-                log('episode_reward#std', float(np.std(rewards)))
-            log('episode_length', step * self.cfg.action_repeat / episode)
-            log('episode', self.global_episode)
-            log('z_correl', z_correl / episode)
-            log('step', self.global_step)
-            if actor_success:
-                log('actor_sucess', float(np.mean(actor_success)))
-            log('z_norm', np.linalg.norm(meta['z']).item())
-            for key, val in physics_agg.dump():
-                log(key, val)
+            for name in domain_tasks[self.domain]:
+                task = "_".join([self.domain, name])
+                self.cfg.task = task
+                self.cfg.custom_reward = task  # for the replay buffer
+                self.cfg.seed += 1  # for the sake of avoiding similar seeds
+                self.eval_env = self._make_env()      
+
+                step, episode = 0, 0
+                eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
+                physics_agg = dmc.PhysicsAggregator()
+                rewards: tp.List[float] = []
+                normalized_scores: tp.List[float] = []
+                # For goal-reaching tasks (goal space + no custom_reward)
+                if self.cfg.goal_space is not None and self.cfg.custom_reward is None:
+                    meta = _init_eval_meta(self)
+                z_correl = 0.0
+                is_d4rl_task = self.cfg.task.split('_')[0] == 'd4rl'
+                actor_success: tp.List[float] = []
+                while eval_until_episode(episode):
+                    time_step = self.eval_env.reset()
+                    # create custom reward if need be (if field exists)
+                    seed = 12 * self.cfg.num_eval_episodes + len(rewards)
+                    custom_reward = self._make_custom_reward(seed=seed)
+                    if custom_reward is not None:
+                        meta = _init_eval_meta(self, custom_reward)
+                    total_reward = 0.0
+                    self.video_recorder.init(self.eval_env, enabled=(episode == 0))
+                    while not time_step.last():
+                        with torch.no_grad(), utils.eval_mode(self.agent):
+                            action = self.agent.act(time_step.observation,
+                                                    meta,
+                                                    self.global_step,
+                                                    eval_mode=True)
+                        time_step = self.eval_env.step(action)
+                        physics_agg.add(self.eval_env)
+                        self.video_recorder.record(self.eval_env)
+                        if self.agent.cfg.additional_metric:
+                            z_correl += self.agent.compute_z_correl(time_step, meta)
+                            actor_success.extend(self.agent.actor_success)
+                        if custom_reward is not None:
+                            time_step.reward = custom_reward.from_env(self.eval_env)
+                        total_reward += time_step.reward
+                        step += 1
+                    if is_d4rl_task:
+                        normalized_scores.append(self.eval_env.get_normalized_score(total_reward))
+                    rewards.append(total_reward)
+                    episode += 1
+                    self.video_recorder.save(f'{self.global_frame}.mp4')
+
+                total_avg_reward = float(np.mean(rewards))
+                if is_d4rl_task:
+                    log(f'episode_normalized_score_{task}', float(100 * np.mean(normalized_scores)))
+                log(f'episode_reward_{task}', total_avg_reward)
+                if len(rewards) > 1:
+                    log(f'episode_reward#std_{task}', float(np.std(rewards)))
+                log(f'episode_length_{task}', step * self.cfg.action_repeat / episode)
+                log(f'episode_{task}', self.global_episode)
+                log(f'z_correl_{task}', z_correl / episode)
+                log(f'step_{task}', self.global_step)
+                log(f'z_norm_{task}', np.linalg.norm(meta['z']).item())
+                for key, val in physics_agg.dump():
+                    log(key+f'_{task}', val)
 
     _CHECKPOINTED_KEYS = ('agent', 'global_step', 'global_episode', "replay_loader")
 
@@ -446,7 +461,7 @@ class BaseWorkspace(tp.Generic[C]):
             domain_tasks = {
                 "cheetah": ['walk', 'walk_backward', 'run', 'run_backward'],
                 "quadruped": ['stand', 'walk', 'run', 'jump'],
-                "walker": ['stand', 'walk', 'run', 'flip', 'upside'],
+                "walker": ['stand', 'walk', 'run', 'flip'],
             }
             if self.domain not in domain_tasks:
                 return
@@ -589,7 +604,7 @@ class Workspace(BaseWorkspace[Config]):
             if not self.global_frame % self.cfg.checkpoint_every:
                 self.save_checkpoint(self._checkpoint_filepath)
         self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
-        self.finalize()
+        # self.finalize()
 
     def eval_model(self) -> None:
         self.eval()

@@ -207,12 +207,12 @@ class FBDDPGAgent:
         return self.infer_meta_from_obs_and_rewards(obs, reward)
 
     def infer_meta_from_obs_and_rewards(self, obs: torch.Tensor, reward: torch.Tensor) -> MetaDict:
-        print('max reward: ', reward.max().cpu().item())
-        print('99 percentile: ', torch.quantile(reward, 0.99).cpu().item())
-        print('median reward: ', reward.median().cpu().item())
-        print('min reward: ', reward.min().cpu().item())
-        print('mean reward: ', reward.mean().cpu().item())
-        print('num reward: ', reward.shape[0])
+        # print('max reward: ', reward.max().cpu().item())
+        # print('99 percentile: ', torch.quantile(reward, 0.99).cpu().item())
+        # print('median reward: ', reward.median().cpu().item())
+        # print('min reward: ', reward.min().cpu().item())
+        # print('mean reward: ', reward.mean().cpu().item())
+        # print('num reward: ', reward.shape[0])
 
         # filter out small reward
         # pdb.set_trace()
