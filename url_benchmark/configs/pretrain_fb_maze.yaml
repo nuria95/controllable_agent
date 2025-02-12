@@ -6,22 +6,25 @@ defaults:
 
 
 task: point_mass_maze_reach_bottom_right
-custom_reward: maze_multi_goal
 goal_space: simplified_point_mass_maze
+custom_reward: maze_multi_goal
+append_goal_to_observation: false
 uncertainty: True
-eval_every_frames: 100000
+eval_every_frames: 10000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: online_track_disagr
+experiment: test_maze
 discount: 0.99
 num_train_frames: 2000010
+replay_buffer_episodes: 1000
 
 agent:
   batch_size: 256
   z_dim: 100
   num_inference_steps: 10000
   mix_ratio: 0.5
+  add_trunk: true # I think! check G2 appendix paper
 num_eval_episodes: 10
 hydra:
   run:

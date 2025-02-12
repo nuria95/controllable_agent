@@ -233,7 +233,13 @@ class BaseWorkspace(tp.Generic[C]):
             self.agent.eval_states = _goals.MazeMultiGoal().get_eval_midroom_states().to(self.device)
             self.agent.eval_zs = self.agent.sample_z(len(self.agent.eval_states), device=self.device)
         else:
-            self.agent.eval_states = None 
+            self.agent.eval_states = None
+
+        self.domain_tasks = {
+            "cheetah": ['walk_backward'],
+            "quadruped": ['stand', 'walk', 'run', 'jump'],
+            "walker": ['stand', 'walk', 'run', 'flip'],
+        }
 
     def _make_env(self) -> dmc.EnvWrapper:
         cfg = self.cfg
@@ -285,29 +291,29 @@ class BaseWorkspace(tp.Generic[C]):
                 goal_distances.append(float(distance))
                 goal_successes.append(success)
                 self.video_recorder.save(f'{g}.mp4')
-            print(f"goal: {g}, avg_reward: {round(float(np.mean(goal_rewards)), 2)}, "
-                  f"avg_distance: {round(float(np.mean(goal_distances)), 5)}, "
-                  f"avg_success: {round(float(np.mean(goal_successes)), 5)}")
+            # print(f"goal: {g}, avg_reward: {round(float(np.mean(goal_rewards)), 2)}, "
+            #       f"avg_distance: {round(float(np.mean(goal_distances)), 5)}, "
+            #       f"avg_success: {round(float(np.mean(goal_successes)), 5)}")
             rewards.append(float(np.mean(goal_rewards)))
             dists.append(float(np.mean(goal_distances)))
             successes.append(float(np.mean(goal_successes)))  # num goals x 1
-        self.eval_rewards_history.append(float(np.mean(rewards)))
-        self.eval_dist_history.append(float(np.mean(dists)))
+        total_avg_reward = float(np.mean(rewards))
+        total_avg_dist = float(np.mean(dists))
+        total_avg_success = float(np.mean(successes))
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            log('episode_reward', self.eval_rewards_history[-1])
-            log('episode_distance', self.eval_dist_history[-1])
+            log('episode_reward', total_avg_reward)
+            log('episode_distance', total_avg_dist)
             log('step', self.global_step)
             log('episode', self.global_episode)
-            log('success_rate', float(np.mean(successes)))
+            log('success_rate', total_avg_success)
             for i, room in zip(range(0, len(successes), reward_cls.goals_per_room), range(1, 5)):
                 log(f'success_room{room}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
+                log(f'reward_room{room}', float(np.mean(rewards[i:i+reward_cls.goals_per_room])))
+                log(f'dist_{room}', float(np.mean(dists[i:i+reward_cls.goals_per_room])))
 
-    def eval(self) -> None:
-        domain_tasks = {
-                "cheetah": ['walk', 'walk_backward', 'run', 'run_backward'],
-                "quadruped": ['stand', 'walk', 'run', 'jump'],
-                "walker": ['stand', 'walk', 'run', 'flip'],
-            }
+    def eval(self, task=None) -> None:
+        if task is not None:
+            self.domain_tasks = {self.domain: [task.split('_')[1]]}
         # Test if enough data to compute meta from samples, otw quit already!
         custom_reward = self._make_custom_reward(seed=0)
         if custom_reward is not None:
@@ -316,7 +322,7 @@ class BaseWorkspace(tp.Generic[C]):
                 return
         # add log_and_dump here to ensure csv_file has all the fields (columns)!
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            for name in domain_tasks[self.domain]:
+            for name in self.domain_tasks[self.domain]:
                 task = "_".join([self.domain, name])
                 self.cfg.task = task
                 self.cfg.custom_reward = task  # for the replay buffer
@@ -607,7 +613,7 @@ class Workspace(BaseWorkspace[Config]):
         # self.finalize()
 
     def eval_model(self) -> None:
-        self.eval()
+        self.eval(task=self.cfg.task)
         if 'maze' not in self.cfg.task:
             return
         self.agent.compute_disagreement_metrics()
