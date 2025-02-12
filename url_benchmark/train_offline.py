@@ -74,8 +74,9 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         else:
             goalappended = '_appendgoal' if cfg.append_goal_to_observation else ''
             relabeled_replay_file_path = replay_dir / f"../replay_{cfg.task}_{cfg.replay_buffer_episodes}_{cfg.goal_space}{goalappended}.pt"
+            relabeled_replay_file_path = relabeled_replay_file_path.resolve()
             if relabeled_replay_file_path.exists():
-                print("loading Replay from %s", relabeled_replay_file_path.resolve())
+                print("loading Replay from %s", relabeled_replay_file_path)
                 self.load_checkpoint(relabeled_replay_file_path, only=["replay_loader"])
                 # with relabeled_replay_file_path.open('rb') as f:
                 #     self.replay_loader = torch.load(f)
