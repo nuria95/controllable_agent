@@ -7,6 +7,7 @@ defaults:
 
 task: walker_walk
 goal_space: simplified_walker
+custom_reward: walker_walk
 append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
@@ -16,6 +17,7 @@ seed: 0
 experiment: test_walker
 discount: 0.98
 num_train_frames: 2000010
+replay_buffer_episodes: 1000
 
 agent:
   batch_size: 256
