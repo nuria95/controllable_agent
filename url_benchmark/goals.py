@@ -105,6 +105,14 @@ def simplified_quadruped(env: dmc.EnvWrapper) -> np.ndarray:
                     dtype=np.float32)
 
 @goal_spaces("quadruped")
+def simplified_quadruped_vel(env: dmc.EnvWrapper) -> np.ndarray:
+    # check the physics here:
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/quadruped.py#L145
+    return np.array([env.physics.torso_upright(),
+                     env.physics.torso_velocity()],
+                    dtype=np.float32)
+
+@goal_spaces("quadruped")
 def simplified_quadruped_velx(env: dmc.EnvWrapper) -> np.ndarray:
     # check the physics here:
     # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/quadruped.py#L145
