@@ -1,0 +1,25 @@
+# default grid for debugging
+
+name: &experiment_name online_fb_quadruped_modgoal_velx_mixratio
+results_dir: /cluster/home/nuriaa/controllable_agent/results_clus
+git_branch: main
+git_commit: null
+script_path: url_benchmark/pretrain.py
+pre_script: cluster_setup.sh
+cluster_requirements:
+  cpus: 10
+  ram: 32000 #MB. Equivalent to mem_per_cpu times cpus
+  gpus: 1
+  gpu_mem: 20 #in GB
+  disk: 10G
+  time: 12:00:00
+default_params: url_benchmark/pretrain_fb_quadruped.yaml
+grid:
+  #fixed: 0
+  #[param1, param2]: [[2.1, 3], [5, 5]]
+  experiment: *experiment_name
+  uncertainty: [True, False]
+  agent.batch_size: [256]
+  agent.mix_ratio: [0.5, 0.8, 1.]
+  num_train_frames: 1000010
+  seed: [0,1,2]                             
