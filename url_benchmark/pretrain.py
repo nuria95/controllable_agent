@@ -437,7 +437,8 @@ class BaseWorkspace(tp.Generic[C]):
                 # val._max_episodes = len(val._storage["discount"])
                 # val._idx = len(val._storage["discount"]) % self.cfg.replay_buffer_episodes
                 # val._full = val._idx == 0
-                val._max_episodes = self.cfg.replay_buffer_episodes
+                if not self.cfg.eval: # Otherwise keep original buffer size
+                    val._max_episodes = self.cfg.replay_buffer_episodes
                 val._episodes_length = np.array([len(array) - 1 for array in val._storage["discount"]], dtype=np.int32)
                 self.replay_loader = val
                 # # TODO:  This leads to out of RAM for now (to be fixed)
