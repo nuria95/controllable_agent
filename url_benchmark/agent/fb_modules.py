@@ -152,6 +152,19 @@ class DiagGaussianActor(nn.Module):
         return dist
 
 
+class HighLevelActor(nn.Module):
+    def __init__(self, obs_dim, action_dim, hidden_dim) -> None:
+        super().__init__()
+        self.policy = mlp(obs_dim, hidden_dim, "ntanh", hidden_dim, "relu", action_dim, "tanh")
+        self.apply(utils.weight_init)
+
+    def forward(self, obs, std=1.):
+        mu = self.policy(obs)
+        std = torch.ones_like(mu) * std
+        dist = utils.TruncatedNormal(mu, std)
+        return dist
+
+
 class EnsembleMLP(nn.Module):
     # internal model should only have init and forward meths.
 
@@ -286,9 +299,6 @@ class BackwardMap(nn.Module):
         self.apply(utils.weight_init)
 
     def forward(self, obs):
-        if not hasattr(self, "norm_z"):  # backward compatiblity
-            self.norm_z = True
-
         B = self.B(obs)
         if self.norm_z:
             B = math.sqrt(self.z_dim) * F.normalize(B, dim=1)

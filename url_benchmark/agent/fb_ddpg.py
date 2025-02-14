@@ -27,7 +27,7 @@ from url_benchmark import goals as _goals
 from .ddpg import MetaDict
 from .fb_modules import IdentityMap
 from .ddpg import Encoder
-from .fb_modules import Actor, DiagGaussianActor, ForwardMap, BackwardMap, OnlineCov, EnsembleMLP
+from .fb_modules import Actor, DiagGaussianActor, ForwardMap, BackwardMap, OnlineCov, EnsembleMLP, HighLevelActor
 
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ class FBDDPGAgentConfig:
     uncertainty: bool = omegaconf.II("uncertainty")
     one_target: bool = False
     n_ensemble: int = 5
+    sampling: bool = False  # use argmax to sample curious z (True), otw policy
 
 
 cs = ConfigStore.instance()
@@ -123,6 +124,8 @@ class FBDDPGAgent:
             self.actor = Actor(self.obs_dim, cfg.z_dim, self.action_dim,
                                cfg.feature_dim, cfg.hidden_dim,
                                preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
+        if not self.cfg.sampling:
+            self.high_expl_actor = HighLevelActor(self.obs_dim, cfg.z_dim, cfg.hidden_dim).to(cfg.device)
        
         f_dict = {'obs_dim': self.obs_dim, 'z_dim': cfg.z_dim, 'action_dim': self.action_dim,
                   'feature_dim': cfg.feature_dim, 'hidden_dim': cfg.hidden_dim,
@@ -130,7 +133,7 @@ class FBDDPGAgent:
         if not cfg.uncertainty:
             self.forward_net = ForwardMap(**f_dict).to(cfg.device)
         else:
-            self.forward_net = EnsembleMLP(f_dict, n_ensemble=self.cfg.n_ensemble, device=cfg.device) 
+            self.forward_net = EnsembleMLP(f_dict, n_ensemble=self.cfg.n_ensemble, device=cfg.device)
         if cfg.debug:
             self.backward_net: nn.Module = IdentityMap().to(cfg.device)
             self.backward_target_net: nn.Module = IdentityMap().to(cfg.device)
@@ -154,6 +157,8 @@ class FBDDPGAgent:
         if cfg.obs_type == 'pixels':
             self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=cfg.lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=cfg.lr)
+        if not self.cfg.sampling:
+            self.high_expl_actor_opt = torch.optim.Adam(self.high_expl_actor.parameters(), lr=cfg.lr)
         self.fb_opt = torch.optim.Adam([{'params': self.forward_net.parameters()},  # type: ignore
                                         {'params': self.backward_net.parameters(), 'lr': cfg.lr_coef * cfg.lr}],
                                        lr=cfg.lr)
@@ -186,8 +191,9 @@ class FBDDPGAgent:
         desired_goal = torch.tensor(goal_array).unsqueeze(0).to(self.cfg.device)
         with torch.no_grad():
             z = self.backward_net(desired_goal)
-        if self.cfg.norm_z:
-            z = math.sqrt(self.cfg.z_dim) * F.normalize(z, dim=1)
+        # I think this is not needed, it's already noramlized inside bakkward_net! Nuria
+        # if self.cfg.norm_z:
+        #     z = math.sqrt(self.cfg.z_dim) * F.normalize(z, dim=1)
         z = z.squeeze(0).cpu().numpy()
         meta = OrderedDict()
         meta['z'] = z
@@ -254,21 +260,30 @@ class FBDDPGAgent:
         return meta
     
     def init_curious_meta(self, obs: np.ndarray) -> MetaDict:
-        with torch.no_grad():
-            num_zs = 100
-            z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
-            obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).expand(num_zs, -1) # num_zs x obs_dim
-            h = self.encoder(obs)
-            acts = self.actor(h, z, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
-            F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
-            Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
-        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs
-        idxs = torch.argmax(epistemic_std1, dim=0)
-        uncertain_z = z[idxs].cpu().numpy()  # take the z with the highest epistemic uncertainty
         meta = OrderedDict()
-        meta['z'] = uncertain_z
-        meta['disagr'] = epistemic_std1.std().item()
-        meta['updated'] = True
+        if self.cfg.sampling:
+            with torch.no_grad():
+                num_zs = 100
+                z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
+                obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).expand(num_zs, -1) # num_zs x obs_dim
+                h = self.encoder(obs)
+                acts = self.actor(h, z, std=1.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
+                F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
+                Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
+            epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+            idxs = torch.argmax(epistemic_std1, dim=0)
+            uncertain_z = z[idxs].cpu().numpy()  # take the z with the highest epistemic uncertainty
+            meta['z'] = uncertain_z
+            meta['disagr'] = epistemic_std1.std().item()
+            meta['updated'] = True
+        else:
+            with torch.no_grad():
+                obs = torch.as_tensor(obs, device=self.cfg.device)
+                z = self.high_expl_actor(obs, std=1.).sample()  # TODO check std
+                if self.cfg.norm_z:
+                    z = math.sqrt(self.cfg.z_dim) * F.normalize(z, dim=0)
+                meta['z'] = z.cpu().numpy()
+                meta['updated'] = True
         return meta
 
     # pylint: disable=unused-argument
@@ -474,11 +489,11 @@ class FBDDPGAgent:
         metrics: tp.Dict[str, float] = {}
         if self.cfg.boltzmann:
             dist = self.actor(obs, z)
-            action = dist.rsample()
+            action = dist.rsample() # differentiable/ non differentiable?
         else:
             stddev = utils.schedule(self.cfg.stddev_schedule, step)
             dist = self.actor(obs, z, stddev)
-            action = dist.sample(clip=self.cfg.stddev_clip)
+            action = dist.sample(clip=self.cfg.stddev_clip) # non differentiable / differentiable?
 
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         F1, F2 = self.forward_net((obs, z, action))
@@ -508,6 +523,32 @@ class FBDDPGAgent:
             metrics['actor_logprob'] = log_prob.mean().item()
             # metrics['actor_ent'] = dist.entropy().sum(dim=-1).mean().item()
 
+        return metrics
+
+    def update_high_expl_actor(self, obs: torch.Tensor, step: int) -> tp.Dict[str, float]:
+        metrics: tp.Dict[str, float] = {}
+
+        stddev = utils.schedule(self.cfg.stddev_schedule, step) # TODO check
+        dist = self.high_expl_actor(obs, stddev)
+        z = dist.sample()
+        if self.cfg.norm_z:
+            z = math.sqrt(self.cfg.z_dim) * F.normalize(z, dim=1)
+        with torch.no_grad(): # TODO check
+            a = self.actor(obs, z, std=1.).mean  # TODO mean?
+        F1, F2 = self.forward_net((obs, z, a))
+
+        Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]] 
+        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # TODO not using epistemic_std2
+        epistemic_std = epistemic_std1.mean()
+        actor_loss = -epistemic_std
+        # optimize actor
+        self.high_expl_actor_opt.zero_grad(set_to_none=True)
+        self.actor_opt.zero_grad(set_to_none=True)
+        actor_loss.backward()
+        self.high_expl_actor_opt.step()
+
+        if self.cfg.use_tb or self.cfg.use_wandb:
+            metrics['high_actor_loss'] = actor_loss.item()
         return metrics
 
     def aug_and_encode(self, obs: torch.Tensor) -> torch.Tensor:
@@ -580,9 +621,13 @@ class FBDDPGAgent:
                                       next_obs=next_obs, next_goal=next_goal, z=z, step=step,
                                       goal=goal))
 
+        # update high expl actor
+        metrics.update(self.update_high_expl_actor(obs, step))
+
         # update actor
         metrics.update(self.update_actor(obs, z, step))
-        #compute disagr
+
+        # compute disagr
         metrics.update(self.compute_disagreement_metrics())
 
         # update critic target
