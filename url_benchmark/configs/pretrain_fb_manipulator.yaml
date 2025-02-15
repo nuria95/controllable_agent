@@ -28,6 +28,8 @@ agent:
   lr_coef: 1.
   sampling: True
   add_trunk: true
+  update_z_every_step: 100
+
 
 num_eval_episodes: 10
 hydra:
