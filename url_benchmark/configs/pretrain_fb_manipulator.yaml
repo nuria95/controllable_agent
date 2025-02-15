@@ -8,9 +8,9 @@ defaults:
 task: manipulator_bring_ball
 goal_space: simplified_manipulator
 custom_reward: manipulator_bring_ball
-append_goal_to_observation: false
+append_goal_to_observation: True
 uncertainty: True
-eval_every_frames: 1000
+eval_every_frames: 10000
 use_wandb: true
 warmup: false
 seed: 0
@@ -22,7 +22,7 @@ replay_buffer_episodes: 1000
 agent:
   batch_size: 256
   z_dim: 50
-  num_inference_steps: 1000
+  num_inference_steps: 10000
   mix_ratio: 0.5
   lr: 1.e-4
   lr_coef: 1.
