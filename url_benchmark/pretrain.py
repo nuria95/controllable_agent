@@ -181,6 +181,9 @@ class BaseWorkspace(tp.Generic[C]):
         else:
             self.domain = task.split('_', maxsplit=1)[0]
 
+        if cfg.goal_space is not None:
+            if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
+                raise ValueError(f"Unregistered goal space {cfg.goal_space} for domain {self.domain}")
         self.train_env = self._make_env()
         self.eval_env = self._make_env()
         # create agent
@@ -201,9 +204,6 @@ class BaseWorkspace(tp.Generic[C]):
             ])
             wandb.init(project="controllable_agent", group=cfg.experiment, name=exp_name,  # mode="disabled",
                        config=omgcf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True), dir=self.work_dir)  # type: ignore
-        if cfg.goal_space is not None:
-            if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
-                raise ValueError(f"Unregistered goal space {cfg.goal_space} for domain {self.domain}")
 
         self.replay_loader = ReplayBuffer(max_episodes=cfg.replay_buffer_episodes, discount=cfg.discount, future=cfg.future)
 
@@ -225,9 +225,7 @@ class BaseWorkspace(tp.Generic[C]):
         elif cfg.load_model is not None:
             self.load_checkpoint(cfg.load_model)  #, exclude=["replay_loader"])
 
-        self.reward_cls: tp.Optional[_goals.BaseReward] = None
         if self.cfg.custom_reward == "maze_multi_goal":
-            self.reward_cls = self._make_custom_reward(seed=self.cfg.seed)
             # Compute fix states and zs for evaluating disagreement through time
             # self.agent.eval_states = _goals.MazeMultiGoal().get_eval_states(num_states=500).to(self.device)
             self.agent.eval_states = _goals.MazeMultiGoal().get_eval_midroom_states().to(self.device)
@@ -239,6 +237,7 @@ class BaseWorkspace(tp.Generic[C]):
             "cheetah": ['walk', 'walk_backward', 'run', 'run_backward'],
             "quadruped": ['stand', 'walk', 'run', 'jump'],
             "walker": ['stand', 'walk', 'run', 'flip'],
+            "manipulator": ['bring_ball'],
         }
 
     def _make_env(self) -> dmc.EnvWrapper:
@@ -320,6 +319,7 @@ class BaseWorkspace(tp.Generic[C]):
             meta = _init_eval_meta(self, custom_reward)
             if meta is None:  # not enough data to perform z inference
                 return
+        total_tasks_rewards = []
         # add log_and_dump here to ensure csv_file has all the fields (columns)!
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
             for name in self.domain_tasks[self.domain]:
@@ -372,6 +372,7 @@ class BaseWorkspace(tp.Generic[C]):
                     self.video_recorder.save(f'{self.global_frame}.mp4')
 
                 total_avg_reward = float(np.mean(rewards))
+                total_tasks_rewards.append(total_avg_reward)
                 if is_d4rl_task:
                     log(f'episode_normalized_score_{task}', float(100 * np.mean(normalized_scores)))
                 log(f'episode_reward_{task}', total_avg_reward)
@@ -384,6 +385,7 @@ class BaseWorkspace(tp.Generic[C]):
                 log(f'z_norm_{task}', np.linalg.norm(meta['z']).item())
                 for key, val in physics_agg.dump():
                     log(key+f'_{task}', val)
+            log('episode_reward', np.mean(total_tasks_rewards))
 
     _CHECKPOINTED_KEYS = ('agent', 'global_step', 'global_episode', "replay_loader")
 

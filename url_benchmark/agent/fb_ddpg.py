@@ -622,7 +622,8 @@ class FBDDPGAgent:
                                       goal=goal))
 
         # update high expl actor
-        metrics.update(self.update_high_expl_actor(obs, step))
+        if not self.cfg.sampling:
+            metrics.update(self.update_high_expl_actor(obs, step))
 
         # update actor
         metrics.update(self.update_actor(obs, z, step))

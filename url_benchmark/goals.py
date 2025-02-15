@@ -130,6 +130,12 @@ def quad_pos_speed(env: dmc.EnvWrapper) -> np.ndarray:
     return np.concatenate(states, dtype=np.float32)
 
 
+@goal_spaces("manipulator")
+def simplified_manipulator(env: dmc.EnvWrapper) -> np.ndarray:
+    hand = env.physics.body_2d_pose('hand')
+    obj = env.physics.body_2d_pose('ball')
+    return np.concatenate([hand, obj], dtype=np.float32) # todo do I Need ori or target?
+
 # @goal_spaces("quadruped")  # this one needs a specific task for the ball to be present
 # def quadruped_positions(env: dmc.EnvWrapper) -> np.ndarray:
 #     data = env.physics.named.data
@@ -236,7 +242,8 @@ def walker_dummy() -> np.ndarray:
 
 
 def _make_env(domain: str) -> dmc.EnvWrapper:
-    task = {"quadruped": "stand", "walker": "walk", "jaco": "reach_top_left", "point_mass_maze": "reach_bottom_right"}[domain]
+    # TODO for manipulator, goal space depends on task (peg or ball). Using ball for now but nees to be adapted!
+    task = {"quadruped": "stand", "walker": "walk", "jaco": "reach_top_left", "point_mass_maze": "reach_bottom_right", "manipulator": "bring_ball"}[domain]
     return dmc.make(f"{domain}_{task}", obs_type="states", frame_stack=1, action_repeat=1, seed=12)
 
 
