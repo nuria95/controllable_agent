@@ -236,7 +236,7 @@ class BaseWorkspace(tp.Generic[C]):
             self.agent.eval_states = None
 
         self.domain_tasks = {
-            "cheetah": ['walk_backward'],
+            "cheetah": ['walk', 'walk_backward', 'run', 'run_backward'],
             "quadruped": ['stand', 'walk', 'run', 'jump'],
             "walker": ['stand', 'walk', 'run', 'flip'],
         }
