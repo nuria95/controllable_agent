@@ -22,11 +22,12 @@ replay_buffer_episodes: 1000
 agent:
   batch_size: 256
   z_dim: 50
-  num_inference_steps: 10000
+  num_inference_steps: 1000
   mix_ratio: 0.5
   lr: 1.e-4
   lr_coef: 1.
   sampling: True
+  add_trunk: true
 
 num_eval_episodes: 10
 hydra:
