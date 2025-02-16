@@ -238,6 +238,7 @@ class BaseWorkspace(tp.Generic[C]):
             "quadruped": ['stand', 'walk', 'run', 'jump'],
             "walker": ['stand', 'walk', 'run', 'flip'],
             "manipulator": ['bring_ball'],
+            "hopper": ['hop', 'stand', 'hop_backward', 'flip', 'flip_backward']
         }
 
     def _make_env(self) -> dmc.EnvWrapper:
@@ -312,7 +313,7 @@ class BaseWorkspace(tp.Generic[C]):
 
     def eval(self, task=None) -> None:
         if task is not None:
-            self.domain_tasks = {self.domain: [task.split('_')[1]]}
+            self.domain_tasks = {self.domain: ['_'.join(task.split('_')[1:])]}
         # Test if enough data to compute meta from samples, otw quit already!
         custom_reward = self._make_custom_reward(seed=0)
         if custom_reward is not None:

@@ -136,6 +136,14 @@ def simplified_manipulator(env: dmc.EnvWrapper) -> np.ndarray:
     obj = env.physics.body_2d_pose('ball')
     return np.concatenate([hand, obj], dtype=np.float32) # todo do I Need ori or target?
 
+@goal_spaces("hopper")
+def simplified_hopper(env: dmc.EnvWrapper) -> np.ndarray:
+    # check the physics here:
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/walker.py
+    return np.array([env.physics.height(),
+                     env.physics.speed()],
+                    dtype=np.float32)
+
 # @goal_spaces("quadruped")  # this one needs a specific task for the ball to be present
 # def quadruped_positions(env: dmc.EnvWrapper) -> np.ndarray:
 #     data = env.physics.named.data
@@ -242,10 +250,14 @@ def walker_dummy() -> np.ndarray:
 
 
 def _make_env(domain: str) -> dmc.EnvWrapper:
-    # TODO for manipulator, goal space depends on task (peg or ball). Using ball for now but nees to be adapted!
-    task = {"quadruped": "stand", "walker": "walk", "jaco": "reach_top_left", "point_mass_maze": "reach_bottom_right", "manipulator": "bring_ball"}[domain]
+    # TODO for manipulator, goal space depends on task (peg or ball). Using ball for now but needs to be adapted!
+    task = {"quadruped": "stand", 
+            "walker": "walk", 
+            "jaco": "reach_top_left", 
+            "point_mass_maze": "reach_bottom_right", 
+            "manipulator": "bring_ball",
+            "hopper": "hop"}[domain]
     return dmc.make(f"{domain}_{task}", obs_type="states", frame_stack=1, action_repeat=1, seed=12)
-
 
 def get_goal_space_dim(name: str) -> int:
     domain = {space: domain for domain, spaces in goal_spaces.funcs.items() for space in spaces}[name]

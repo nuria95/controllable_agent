@@ -4,17 +4,17 @@ defaults:
   - override hydra/launcher: submitit_slurm
   - _self_
 
-# remove target_pos from observation!
-task: manipulator_bring_ball
-goal_space: simplified_manipulator
-custom_reward: manipulator_bring_ball
+
+task: hopper_hop
+goal_space: simplified_hopper
+custom_reward: hopper_hop
 append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: test_man_bb
+experiment: test_hopper
 discount: 0.98
 num_train_frames: 2000010
 replay_buffer_episodes: 1000
@@ -22,14 +22,11 @@ replay_buffer_episodes: 1000
 agent:
   batch_size: 256
   z_dim: 50
-  num_inference_steps: 1000
+  num_inference_steps: 10000
   mix_ratio: 0.5
   lr: 1.e-4
   lr_coef: 1.
   sampling: True
-  add_trunk: true
-  update_z_every_step: 100
-
 
 num_eval_episodes: 10
 hydra:
