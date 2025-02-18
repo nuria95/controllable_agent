@@ -321,6 +321,11 @@ class BaseWorkspace(tp.Generic[C]):
             meta = _init_eval_meta(self, custom_reward)
             if meta is None:  # not enough data to perform z inference
                 return
+        # Do evaluation on CPU much faster
+        original_device = self.device
+        self.agent.actor.to('cpu')
+        self.agent.cfg.device = 'cpu'
+        self.device = 'cpu'
         total_tasks_rewards = []
         # add log_and_dump here to ensure csv_file has all the fields (columns)!
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
@@ -389,6 +394,11 @@ class BaseWorkspace(tp.Generic[C]):
                     log(key+f'_{task}', val)
             log('episode_reward', np.mean(total_tasks_rewards))
             log('buffer_size', len(self.replay_loader))
+        # Bring back to original device!
+        self.agent.actor.to(original_device)
+        self.agent.cfg.device = original_device
+        self.device = original_device
+        
 
     _CHECKPOINTED_KEYS = ('agent', 'global_step', 'global_episode', "replay_loader")
 
@@ -590,12 +600,14 @@ class Workspace(BaseWorkspace[Config]):
 
             # try to evaluate
             if eval_every_step(self.global_step) and not self.cfg.debug:
+                t_eval = self.timer.total_time()
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 if self.cfg.custom_reward == "maze_multi_goal":
                     self.eval_maze_goals()
                 else:
                     self.eval()
+                self.logger.log('eval_time', self.timer.total_time() - t_eval, self.global_frame)
             # Collect more data if buffer is not full:
             if not self.replay_loader._full:
                 meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
