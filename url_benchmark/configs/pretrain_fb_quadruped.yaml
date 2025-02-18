@@ -25,6 +25,7 @@ agent:
   num_inference_steps: 10000
   mix_ratio: 0.5
   sampling: True
+  update_z_every_step: 100
 
 num_eval_episodes: 10
 hydra:

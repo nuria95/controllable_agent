@@ -26,6 +26,7 @@ agent:
   mix_ratio: 0.5
   add_trunk: true # I think! check G2 appendix paper
   sampling: True
+  update_z_every_step: 100
 
 num_eval_episodes: 10
 hydra:
