@@ -70,9 +70,9 @@ class Config:
     num_eval_episodes: int = 10
     custom_reward: tp.Optional[str] = None  # activates custom eval if not None
     final_tests: int = 10
-    # checkpoint
-    snapshot_at: tp.Tuple[int, ...] = (100000, 200000, 500000, 800000, 1000000, 1500000,
-                                       2000000, 3000000, 4000000, 5000000, 9000000, 10000000)
+    # checkpoint # num episode * length of episode
+    snapshot_at: tp.Tuple[int, ...] = (100, 200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500,
+                                       2000)
     checkpoint_every: int = 100000
     load_model: tp.Optional[str] = None
     # training
@@ -306,6 +306,7 @@ class BaseWorkspace(tp.Generic[C]):
             log('step', self.global_step)
             log('episode', self.global_episode)
             log('success_rate', total_avg_success)
+            log('buffer_size', len(self.replay_loader))
             for i, room in zip(range(0, len(successes), reward_cls.goals_per_room), range(1, 5)):
                 log(f'success_room{room}', float(np.mean(successes[i:i+reward_cls.goals_per_room])))
                 log(f'reward_room{room}', float(np.mean(rewards[i:i+reward_cls.goals_per_room])))
@@ -387,6 +388,7 @@ class BaseWorkspace(tp.Generic[C]):
                 for key, val in physics_agg.dump():
                     log(key+f'_{task}', val)
             log('episode_reward', np.mean(total_tasks_rewards))
+            log('buffer_size', len(self.replay_loader))
 
     _CHECKPOINTED_KEYS = ('agent', 'global_step', 'global_episode', "replay_loader")
 
@@ -535,18 +537,18 @@ class Workspace(BaseWorkspace[Config]):
         physics_agg = dmc.PhysicsAggregator()
 
         while train_until_step(self.global_step):
-            # try to update the agent
+            # try to update the agent: only if we collected enough random data (seed until step steps)
             if not seed_until_step(self.global_step) and update_every_step(self.global_step):
-                if self.global_step == 0 and self.cfg.warmup:
-                    print("Pretraining...")
-                    for _ in range(self.cfg.pretrain_update_steps):
-                        metrics = self.agent.update(self.replay_loader, self.global_step)
-                    print('\nPretraining done\n')
+                # if self.global_step == 0 and self.cfg.warmup:
+                #     print("Pretraining...")
+                #     for _ in range(self.cfg.pretrain_update_steps):
+                #         metrics = self.agent.update(self.replay_loader, self.global_step)
+                #     print('\nPretraining done\n')
                 for _ in range(self.cfg.num_agent_updates):
                     metrics = self.agent.update(self.replay_loader, self.global_step)
                 self.logger.log_metrics(metrics, self.global_frame, ty='train')
 
-            if time_step.last():
+            if not self.replay_loader._full and time_step.last():
                 self.global_episode += 1
                 self.train_video_recorder.save(f'{self.global_frame}.mp4')
                 # wait until all the metrics schema is populated
@@ -581,6 +583,10 @@ class Workspace(BaseWorkspace[Config]):
                 episode_reward = 0.0
                 z_correl = 0.0
                 meta_disagr = []
+                # save checkpoint to reload
+                if self.global_episode in self.cfg.snapshot_at:
+                    self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_data{self.global_episode}.pt'))
+                
 
             # try to evaluate
             if eval_every_step(self.global_step) and not self.cfg.debug:
@@ -590,29 +596,33 @@ class Workspace(BaseWorkspace[Config]):
                     self.eval_maze_goals()
                 else:
                     self.eval()
-            meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
-                                          obs=time_step.observation)
-            if self.cfg.uncertainty and 'disagr' in meta and meta['updated']:
-                meta_disagr.append(meta['disagr'])
-            # sample action
-            with torch.no_grad(), utils.eval_mode(self.agent):
-                action = self.agent.act(time_step.observation,
-                                        meta,
-                                        self.global_step,
-                                        eval_mode=False)
+            # Collect more data if buffer is not full:
+            if not self.replay_loader._full:
+                meta = self.agent.update_meta(meta, self.global_step, time_step, finetune=False, replay_loader=self.replay_loader,
+                                              obs=time_step.observation)
+                if self.cfg.uncertainty and 'disagr' in meta and meta['updated']:
+                    meta_disagr.append(meta['disagr'])
+                # sample action
+                with torch.no_grad(), utils.eval_mode(self.agent):
+                    action = self.agent.act(time_step.observation,
+                                            meta,
+                                            self.global_step,
+                                            eval_mode=False)
 
-            # take env step
-            time_step = self.train_env.step(action)
-            physics_agg.add(self.train_env)
-            episode_reward += time_step.reward
-            self.replay_loader.add(time_step, meta)
-            self.train_video_recorder.record(time_step.observation)
-            z_correl += self.agent.compute_z_correl(time_step, meta)
-            episode_step += 1
+                # take env step
+                time_step = self.train_env.step(action)
+                physics_agg.add(self.train_env)
+                episode_reward += time_step.reward
+                self.replay_loader.add(time_step, meta)
+                self.train_video_recorder.record(time_step.observation)
+                z_correl += self.agent.compute_z_correl(time_step, meta)
+                episode_step += 1
+            
             self.global_step += 1
             # save checkpoint to reload
-            if not self.global_frame % self.cfg.checkpoint_every:
-                self.save_checkpoint(self._checkpoint_filepath)
+            # if self.replay_loader._full:
+            #     if not self.global_frame % self.cfg.checkpoint_every:
+            #         self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_ep{self.global_episode}_frame{self.global_frame}.pt'))
         self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
         # self.finalize()
 
