@@ -596,7 +596,10 @@ class Workspace(BaseWorkspace[Config]):
                 # save checkpoint to reload
                 if self.global_episode in self.cfg.snapshot_at:
                     self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_data{self.global_episode}.pt'))
-                
+            
+            # Very ugly way of keeping the xaxis of evals updated when not collecting more data (and hence not colling log above). TODO pass step to log !
+            if self.replay_loader._full and self.global_frame % self.replay_loader._episodes_length[0] == 0:
+                wandb.log({})
 
             # try to evaluate
             if eval_every_step(self.global_step) and not self.cfg.debug:
