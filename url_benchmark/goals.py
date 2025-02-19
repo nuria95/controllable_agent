@@ -140,9 +140,19 @@ def simplified_manipulator(env: dmc.EnvWrapper) -> np.ndarray:
 def simplified_hopper(env: dmc.EnvWrapper) -> np.ndarray:
     # check the physics here:
     # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/walker.py
-    return np.array([env.physics.height(),
+    return np.array([env.physics.torso_upright(),
                      env.physics.speed()],
                     dtype=np.float32)
+    
+
+@goal_spaces("humanoid")
+def simplified_humanoid(env: dmc.EnvWrapper) -> np.ndarray:
+    # check the physics here:
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/walker.py
+    return np.concatenate([[env.physics.head_height()],
+                            [env.physics.torso_upright()],
+                            env.physics.center_of_mass_velocity()],
+                            dtype=np.float32)
 
 # @goal_spaces("quadruped")  # this one needs a specific task for the ball to be present
 # def quadruped_positions(env: dmc.EnvWrapper) -> np.ndarray:
@@ -256,7 +266,8 @@ def _make_env(domain: str) -> dmc.EnvWrapper:
             "jaco": "reach_top_left", 
             "point_mass_maze": "reach_bottom_right", 
             "manipulator": "bring_ball",
-            "hopper": "hop"}[domain]
+            "hopper": "hop",
+            "humanoid": "walk"}[domain]
     return dmc.make(f"{domain}_{task}", obs_type="states", frame_stack=1, action_repeat=1, seed=12)
 
 def get_goal_space_dim(name: str) -> int:

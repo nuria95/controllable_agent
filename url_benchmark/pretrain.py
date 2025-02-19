@@ -238,7 +238,9 @@ class BaseWorkspace(tp.Generic[C]):
             "quadruped": ['stand', 'walk', 'run', 'jump'],
             "walker": ['stand', 'walk', 'run', 'flip'],
             "manipulator": ['bring_ball'],
-            "hopper": ['hop', 'stand', 'hop_backward', 'flip', 'flip_backward']
+            "hopper": ['hop', 'stand', 'hop_backward', 'flip', 'flip_backward'],
+            "humanoid": ['stand', 'walk', 'run'],
+
         }
 
     def _make_env(self) -> dmc.EnvWrapper:
