@@ -17,7 +17,7 @@ seed: 0
 experiment: test_humanoid
 discount: 0.98
 num_train_frames: 2000010
-replay_buffer_episodes: 1000
+replay_buffer_episodes: 2000
 
 agent:
   batch_size: 256

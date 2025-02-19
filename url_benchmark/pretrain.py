@@ -324,10 +324,10 @@ class BaseWorkspace(tp.Generic[C]):
             if meta is None:  # not enough data to perform z inference
                 return
         # # Do evaluation on CPU much faster
-        # original_device = self.device
-        # self.agent.actor.to('cpu')
-        # self.agent.cfg.device = 'cpu'
-        # self.device = 'cpu'
+        original_device = self.device
+        self.agent.actor.to('cpu')
+        self.agent.cfg.device = 'cpu'
+        self.device = 'cpu'
         total_tasks_rewards = []
         # add log_and_dump here to ensure csv_file has all the fields (columns)!
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
@@ -397,9 +397,9 @@ class BaseWorkspace(tp.Generic[C]):
             log('episode_reward', np.mean(total_tasks_rewards))
             log('buffer_size', len(self.replay_loader))
         # Bring back to original device!
-        # self.agent.actor.to(original_device)
-        # self.agent.cfg.device = original_device
-        # self.device = original_device
+        self.agent.actor.to(original_device)
+        self.agent.cfg.device = original_device
+        self.device = original_device
         
 
     _CHECKPOINTED_KEYS = ('agent', 'global_step', 'global_episode', "replay_loader")
