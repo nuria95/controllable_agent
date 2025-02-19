@@ -19,7 +19,6 @@ def smooth_fct(data, kernel_size=5):
 plt.rcParams.update(bundles.iclr2024(
     family="serif", rel_width=0.9, nrows=1.0, ncols=1.0))
 dir_figs = 'test_folder'
-SAVE = True
 np.random.seed(190)  # for bootstrapping
 
 ourblue = (0.368, 0.507, 0.71)
@@ -45,6 +44,11 @@ domain_tasks = {
     "hopper": ['hop', 'stand', 'hop_backward', 'flip', 'flip_backward']
 }
 
+BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
+dir_figs = '/home/nuria/phd/controllable_agent/figs'
+
+
+# group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling) if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
 final_hyperparams = {'hopper': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]],
                      'maze': [[(True, 0.3, True), ourorange], [(False, 0.3, True), ourblue]],
                      'cheetah': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]],
@@ -53,8 +57,6 @@ final_hyperparams = {'hopper': [[(True, 0.3, None, 100, True), ourorange], [(Tru
                      }
 
 
-BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
-dir_figs = '/home/nuria/phd/controllable_agent/figs'
 paths = [f'{BASE_PATH}/online_fb_quadruped_alltasks_vel',
          f'{BASE_PATH}/online_fb_quadruped_alltasks',
          f'{BASE_PATH}/online_fb_cheetah_alltasks',
@@ -65,7 +67,9 @@ paths = [f'{BASE_PATH}/online_fb_quadruped_alltasks_vel',
          ]
 
 grouped_files = defaultdict(list)
-TASK_PATH = [paths[5], paths[6]]
+TASK_PATH = [paths[5], paths[6]]  # hopper:
+# TASK_PATH = [paths[2]] : cheetah
+
 env = [e for e in list(domain_tasks.keys()) if e in TASK_PATH[0]][0]
 ignore_files = ['commit.txt', 'job_spec.sh']
 files = [os.path.join(t, file) for t in TASK_PATH for file in os.listdir(
@@ -118,7 +122,21 @@ for task in domain_tasks[env]:
             # Store data in the grouped dictionary
             grouped_data[key_rew][group_key].append(rewards)
 
+key_rew = 'episode_reward'
+# Adding avg reward among all tasks
+for group_key, paths in grouped_files.items():
+    grouped_data[key_rew][group_key] = list()
+    for path in paths:
+        print(f"Group {group_key}, {key_rew}: {path}")
+        df = pd.read_csv(path)
+        rewards = df[key_rew].tolist()  # Convert column to list
+        # Store data in the grouped dictionary
+        grouped_data[key_rew][group_key].append(rewards)
 
+
+##########################################
+# Plot reward per task
+SAVE = False
 with plt.style.context(["grid"]):
     fig, axs = plt.subplots(1, len(grouped_data.keys()),
                             figsize=(10, 3))  # 1 plot for each env_task
@@ -179,6 +197,74 @@ with plt.style.context(["grid"]):
     axs[plt_num].legend()
     name_fig = TASK_PATH[0].split('/')[-1]
     fig_path = f'{dir_figs}/{name_fig}_1'
+    if SAVE:
+        plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
+    else:
+        pass
+        # plt.show()
+
+# 3
+
+# Plot avg reward
+SAVE = True
+with plt.style.context(["grid"]):
+    fig, axs = plt.subplots(1, 1, figsize=(4, 3))  # 1 plot for each env_task
+    axs = np.atleast_1d(axs)  # Converts a single Axes object into a 1D array
+
+    plt_num = 0
+    max_ylim = 0
+    groups = grouped_data['episode_reward']
+    for group_key in groups.keys():
+        print(group_key)
+        if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
+            color = [l[1]
+                     for l in final_hyperparams[env] if l[0] == group_key][0]
+            # Compute mean and std of the rewards
+            rews_seeds = groups[group_key]
+            print(
+                f'Number of files for group: {group_key}: {len(rews_seeds)}')
+            # In case some exps are longer than others
+            min_len = min([len(rew) for rew in rews_seeds])
+            rews_seeds = [rew[:min_len] for rew in rews_seeds]
+
+            rewards = np.array(rews_seeds)
+            mean = np.mean(rewards, axis=0)
+            # mean = smooth_fct(mean, kernel_size=2)
+            std = np.std(rewards, axis=0)
+            steps = np.arange(len(mean))+1  # add 1 because we start at 1!
+            # Show only part of the curve
+            if env != 'maze':
+                steps = steps[0:10]
+            mean = mean[0:len(steps)]
+            std = std[0:len(steps)]
+
+            # print(f"Group {group_key}: {mean[-1]:.2f} ± {std[-1]:.2f}")
+            # Plot the mean and std
+            label_ = f"ours: {group_key}" if group_key[0] == True else f"baseline: {group_key}"
+            axs[plt_num].plot(
+                steps, mean, label=f"{label_}", color=color, linewidth=2.0)
+            axs[plt_num].fill_between(
+                steps, mean - std, mean + std, color=color, alpha=0.15)
+            title = env + '_avg_reward'
+            axs[plt_num].set_title(title, fontsize=20)
+            axs[plt_num].set_xlabel(
+                f'Datasize$\\times$ {num_eval_frames}', fontsize=15)
+            axs[plt_num].set_ylabel('Task reward', fontsize=15)
+            max_ylim = max(max(mean), max_ylim) + 50
+            if env == 'hopper':
+                axs[plt_num].set_ylim([0, max_ylim])
+            else:
+                axs[plt_num].set_ylim([0, 1000])
+            # axs[plt_num].set_xlim([0, 10])
+            axs[plt_num].tick_params(axis='x', labelsize=12)
+            axs[plt_num].tick_params(axis='y', labelsize=12)
+            # Bold and bigger x-axis ticks
+            axs[plt_num].set_xticks(np.arange(0, len(steps), 3)+1)
+            # axs[plt_num].tick_params(top=False, right=False)
+
+    axs[plt_num].legend()
+    name_fig = TASK_PATH[0].split('/')[-1]
+    fig_path = f'{dir_figs}/{name_fig}_avg'
     if SAVE:
         plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
     else:
