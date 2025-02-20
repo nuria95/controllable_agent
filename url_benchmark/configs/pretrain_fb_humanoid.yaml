@@ -18,15 +18,16 @@ experiment: test_humanoid
 discount: 0.98
 num_train_frames: 2000010
 replay_buffer_episodes: 2000
+load_model: null
 
 agent:
   batch_size: 256
   z_dim: 50
   num_inference_steps: 10000
-  mix_ratio: 0.5
+  mix_ratio: 0.3
   lr: 1.e-4
   lr_coef: 1.
-  sampling: True
+  sampling: False
   update_z_every_step: 100
 
 num_eval_episodes: 10
