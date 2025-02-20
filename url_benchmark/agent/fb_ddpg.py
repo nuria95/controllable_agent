@@ -157,7 +157,7 @@ class FBDDPGAgent:
         if cfg.obs_type == 'pixels':
             self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=cfg.lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=cfg.lr)
-        if not self.cfg.sampling:
+        if self.cfg.uncertainty and not self.cfg.sampling:
             self.high_expl_actor_opt = torch.optim.Adam(self.high_expl_actor.parameters(), lr=cfg.lr)
         self.fb_opt = torch.optim.Adam([{'params': self.forward_net.parameters()},  # type: ignore
                                         {'params': self.backward_net.parameters(), 'lr': cfg.lr_coef * cfg.lr}],
