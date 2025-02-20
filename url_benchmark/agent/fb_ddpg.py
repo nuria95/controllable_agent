@@ -124,7 +124,7 @@ class FBDDPGAgent:
             self.actor = Actor(self.obs_dim, cfg.z_dim, self.action_dim,
                                cfg.feature_dim, cfg.hidden_dim,
                                preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
-        if not self.cfg.sampling:
+        if self.cfg.uncertainty and not self.cfg.sampling:
             self.high_expl_actor = HighLevelActor(self.obs_dim, cfg.z_dim, cfg.hidden_dim).to(cfg.device)
        
         f_dict = {'obs_dim': self.obs_dim, 'z_dim': cfg.z_dim, 'action_dim': self.action_dim,
