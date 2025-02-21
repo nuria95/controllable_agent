@@ -442,7 +442,7 @@ class FBDDPGAgent:
             I = torch.eye(*M1.size(), device=M1.device)
             off_diag = ~I.bool()
             fb_offdiag: tp.Any = 0.5 * sum((M - discount * target_M)[off_diag].pow(2).mean() for M in [M1, M2]) 
-            fb_diag: tp.Any = -sum(M.diag().mean() for M in [M1, M2])
+            fb_diag: tp.Any = -sum(M.diag().mean() for M in [M1, M2]) * self.cfg.n_ensemble
         else:
             M1 = torch.einsum('esd, ...td -> est', F1, B)  # e x batch x batch
             M2 = torch.einsum('esd, ...td -> est', F2, B)  # e x batch x batch
