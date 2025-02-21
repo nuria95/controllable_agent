@@ -224,3 +224,14 @@ class ReplayBuffer:
                 _shape = (self._max_episode_length,) + values.shape[1:]
             self._storage[name] = np.empty((self._max_episodes,) + _shape, dtype=dtype)
             self._storage[name][:len(values)] = values
+
+    def resize(self) -> None:
+        # Increase dimensions of _storage to match the _max_episodes size.
+        dtype = np.float32
+        to_increase = self._max_episodes - len(self._storage['discount'])
+        augmented_storage = collections.defaultdict()
+        for name, values in self._storage.items():
+            _shape = values.shape[1:]
+            augmented_storage[name] = np.empty((to_increase,) + _shape, dtype=dtype)
+            self._storage[name] = np.concatenate((self._storage[name], augmented_storage[name]), axis=0)
+        
