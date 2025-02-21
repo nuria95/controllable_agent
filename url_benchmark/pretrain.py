@@ -527,8 +527,8 @@ class Workspace(BaseWorkspace[Config]):
             else:
                 assert not cfg.warmup, "Trying to warmup without a preloaded replay buffer"
 
-    def _init_meta(self, obs: np.ndarray = None):
-        meta = self.agent.init_meta(obs)
+    def _init_meta(self, obs: np.ndarray, replay_loader: tp.Optional[ReplayBuffer]):
+        meta = self.agent.init_meta(obs, replay_loader)
         return meta
 
     def train(self) -> None:
@@ -543,7 +543,7 @@ class Workspace(BaseWorkspace[Config]):
                                         self.cfg.action_repeat)
         episode_step, episode_reward, z_correl = 0, 0.0, 0.0
         time_step = self.train_env.reset()
-        meta = self._init_meta(time_step.observation)
+        meta = self._init_meta(time_step.observation, self.replay_loader)
         self.replay_loader.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -587,7 +587,7 @@ class Workspace(BaseWorkspace[Config]):
                             log(key, val)
                 # reset env
                 time_step = self.train_env.reset()
-                meta = self._init_meta(time_step.observation)
+                meta = self._init_meta(time_step.observation, self.replay_loader)
                 self.replay_loader.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
                 # try to save snapshot
