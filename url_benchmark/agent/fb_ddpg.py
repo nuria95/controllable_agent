@@ -82,6 +82,7 @@ class FBDDPGAgentConfig:
     one_target: bool = False
     n_ensemble: int = 5
     sampling: bool = False  # use argmax to sample curious z (True), otw policy
+    myopic: bool = True
 
 
 cs = ConfigStore.instance()
@@ -163,6 +164,10 @@ class FBDDPGAgent:
                                         {'params': self.backward_net.parameters(), 'lr': cfg.lr_coef * cfg.lr}],
                                        lr=cfg.lr)
 
+        if not self.cfg.myopic:
+            if self.cfg.update_z_proba > 0.:
+                print('Setting update z_proba to zero when use nonmyopic approach!')
+                self.cfg.update_z_proba = 0.
         self.train()
         self.forward_target_net.train()
         self.backward_target_net.train()
@@ -245,9 +250,12 @@ class FBDDPGAgent:
             z = np.sqrt(self.cfg.z_dim) * uniform_rdv * gaussian_rdv
         return z
 
-    def init_meta(self, obs: np.ndarray = None) -> MetaDict:
+    def init_meta(self, obs: np.ndarray = None, replay_loader: tp.Optional[ReplayBuffer] = None) -> MetaDict:
         if self.cfg.uncertainty:
-            return self.init_curious_meta(obs)
+            if self.cfg.myopic:
+                return self.init_curious_meta(obs,)
+            else:
+                return self.init_nonmyopic_curious_meta(obs, replay_loader)
         if self.solved_meta is not None:
             print('solved_meta')
             return self.solved_meta
@@ -258,9 +266,45 @@ class FBDDPGAgent:
             meta['z'] = z
         meta['updated'] = True
         return meta
-    
+
+    def init_nonmyopic_curious_meta(self, obs: np.ndarray, replay_loader: tp.Optional[ReplayBuffer]) -> MetaDict:
+        meta = OrderedDict()
+        num_steps = self.cfg.num_inference_steps  # type: ignore
+        if len(replay_loader) * replay_loader._episodes_length[0] < num_steps: 
+            # print("Not enough data for inference, random z")
+            z = self.sample_z(1)
+            z = z.squeeze().numpy()
+            meta['z'] = z
+        else:
+            obs_list, reward_list = [], []
+            batch_size = 0
+            while batch_size < num_steps:
+                batch = replay_loader.sample(self.cfg.batch_size)
+                batch = batch.to(self.cfg.device)
+                # Compute reward:
+                with torch.no_grad():
+                    num_zs = 1000
+                    z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
+                    for obs in batch.obs:
+                        obs = obs.expand(num_zs, -1)
+                        acts = self.actor(obs, z, std=1.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
+                        F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
+                        Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
+                        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+                        reward_list.append(epistemic_std1.mean()) #TODO MEAN? std1 only?
+                obs_list.append(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs)
+                batch_size += batch.next_obs.size(0)
+            obs, reward = torch.cat(obs_list, 0), torch.stack(reward_list).unsqueeze(dim=1)  # type: ignore
+            obs_t, reward_t = obs[:num_steps], reward[:num_steps]
+            meta = self.infer_meta_from_obs_and_rewards(obs_t, reward_t)
+        
+        meta['updated'] = True
+        return meta
+
     def init_curious_meta(self, obs: np.ndarray) -> MetaDict:
         meta = OrderedDict()
+        if not self.cfg.myopic:
+            return self.init_nonmyopic_curious_meta(obs)
         if self.cfg.sampling:
             with torch.no_grad():
                 num_zs = 100
