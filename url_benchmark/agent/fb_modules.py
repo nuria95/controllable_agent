@@ -326,15 +326,16 @@ class MultinputNet(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, obs_dim, action_dim, hidden_dim) -> None:
+    def __init__(self, obs_dim, action_dim, z_dim, hidden_dim) -> None:
         super().__init__()
         self.obs_dim = obs_dim
         self.action_dim = action_dim
-        self.Q = mlp(obs_dim + action_dim, hidden_dim, "ntanh", hidden_dim, "relu", 1)
+        self.z_dim = z_dim
+        self.Q = mlp(obs_dim + action_dim + self.z_dim, hidden_dim, "ntanh", hidden_dim, "relu", 1)
         self.apply(utils.weight_init)
 
-    def forward(self, obs, action):
-        h = torch.cat([obs, action], dim=-1)
+    def forward(self, obs, action, z):
+        h = torch.cat([obs, action, z], dim=-1)
         Q = self.Q(h)
         return Q
 

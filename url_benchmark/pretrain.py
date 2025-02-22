@@ -142,7 +142,7 @@ def _init_eval_meta(workspace: "BaseWorkspace", custom_reward: tp.Optional[_goal
         while batch_size < num_steps:
             batch = workspace.replay_loader.sample(workspace.cfg.batch_size, custom_reward=custom_reward)
             batch = batch.to(workspace.cfg.device)
-            obs_list.append(batch.next_goal if workspace.cfg.goal_space is not None else batch.next_obs)
+            obs_list.append(batch.next_goal if workspace.cfg.goal_space is not None else batch.next_obs)  # TODO: why next_obs and not obs?
             reward_list.append(batch.reward)
             batch_size += batch.next_obs.size(0)
         obs, reward = torch.cat(obs_list, 0), torch.cat(reward_list, 0)  # type: ignore

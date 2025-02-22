@@ -172,8 +172,8 @@ class FBDDPGAgent:
                                        lr=cfg.lr)
 
         if self.cfg.rnd:
-            self.Q_rnd = Critic(self.obs_dim, self.action_dim, self.cfg.hidden_dim).to(cfg.device)
-            self.target_Q_rnd = Critic(self.obs_dim, self.action_dim, self.cfg.hidden_dim).to(cfg.device)
+            self.Q_rnd = Critic(self.obs_dim, self.action_dim, cfg.z_dim, self.cfg.hidden_dim).to(cfg.device)
+            self.target_Q_rnd = Critic(self.obs_dim, self.action_dim, cfg.z_dim, self.cfg.hidden_dim).to(cfg.device)
             self.target_Q_rnd.load_state_dict(self.Q_rnd.state_dict())
             self.Q_rnd_opt = torch.optim.Adam(self.Q_rnd.parameters(), lr=cfg.lr)
             self.rnd_module = RNDCuriosity(self.obs_dim, self.cfg.hidden_dim, self.cfg.rnd_embed_dim, self.cfg.lr, cfg.device)
@@ -284,7 +284,7 @@ class FBDDPGAgent:
     def init_nonmyopic_curious_meta(self, obs: np.ndarray, replay_loader: tp.Optional[ReplayBuffer]) -> MetaDict:
         meta = OrderedDict()
         num_steps = self.cfg.num_obs_samples  # type: ignore
-        if len(replay_loader) * replay_loader._episodes_length[0] < num_steps: 
+        if len(replay_loader) * replay_loader._episodes_length[0] < num_steps:
             # print("Not enough data for inference, random z")
             z = self.sample_z(1)
             z = z.squeeze().numpy()
@@ -301,13 +301,13 @@ class FBDDPGAgent:
                     z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
                     for obs in batch.obs:
                         obs = obs.expand(num_zs, -1)
-                        acts = self.actor(obs, z, std=1.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
+                        acts = self.actor(obs, z, std=1.).mean  # num_zs x act_dim take the mean
                         F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
                         Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
                         epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
                         reward_list.append(epistemic_std1.mean()) #TODO MEAN? std1 only?
-                obs_list.append(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs)
-                batch_size += batch.next_obs.size(0)
+                obs_list.append(batch.goal if self.cfg.goal_space is not None else batch.obs)
+                batch_size += batch.obs.size(0)
             obs, reward = torch.cat(obs_list, 0), torch.stack(reward_list).unsqueeze(dim=1)  # type: ignore
             obs_t, reward_t = obs[:num_steps], reward[:num_steps]
             meta = self.infer_meta_from_obs_and_rewards(obs_t, reward_t)
@@ -570,7 +570,7 @@ class FBDDPGAgent:
         Q = torch.min(Q1, Q2)
         actor_loss = (self.cfg.temp * log_prob - Q).mean() if self.cfg.boltzmann else -Q.mean()
         if self.cfg.rnd:
-            rnd_loss = -self.Q_rnd(obs, action).mean()
+            rnd_loss = -self.Q_rnd(obs, action, z).mean()
             actor_loss += self.cfg.rnd_coeff * rnd_loss
             metrics['actor_loss_rnd'] = rnd_loss.item() if self.cfg.rnd else 0
             metrics['actor_loss_exploit'] = -Q.mean().item()
@@ -618,11 +618,11 @@ class FBDDPGAgent:
 
     def update_Qrnd(self, obs: torch.Tensor, action: torch.Tensor, discount: torch.Tensor, next_obs: torch.Tensor, z: torch.Tensor, step: int) -> tp.Dict[str, float]:
         metrics: tp.Dict[str, float] = {}
-        values_rnd = self.Q_rnd(obs, action)
+        values_rnd = self.Q_rnd(obs, action, z)
 
         with torch.no_grad():
             next_action = self.actor(next_obs, z, std=1.).sample()
-            next_values_rnd = self.target_Q_rnd(next_obs, next_action)
+            next_values_rnd = self.target_Q_rnd(next_obs, next_action, z)
         reward, rnd_loss = self.rnd_module.update_curiosity(next_obs)
         value_loss = F.mse_loss(values_rnd, reward + discount * next_values_rnd)
         self.Q_rnd_opt.zero_grad()
