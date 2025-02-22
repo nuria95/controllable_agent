@@ -18,7 +18,6 @@ def smooth_fct(data, kernel_size=5):
 
 plt.rcParams.update(bundles.iclr2024(
     family="serif", rel_width=0.9, nrows=1.0, ncols=1.0))
-dir_figs = 'test_folder'
 np.random.seed(190)  # for bootstrapping
 
 ourblue = (0.368, 0.507, 0.71)
@@ -45,30 +44,58 @@ domain_tasks = {
 }
 
 BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
-dir_figs = '/home/nuria/phd/controllable_agent/figs'
+# dir_figs = '/home/nuria/phd/controllable_agent/figs/exp1'
 
 
 # group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling) if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
-final_hyperparams = {'hopper': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]],
-                     'maze': [[(True, 0.3, True), ourorange], [(False, 0.3, True), ourblue]],
-                     'cheetah': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]],
-                     'quadruped': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]],
-                     'walker': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]]
-                     }
+# final_hyperparams = {'hopper': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]],
+#                      'maze': [[(True, 0.3, True), ourorange], [(False, 0.3, True), ourblue]],
+#                      'cheetah': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]],
+#                      'quadruped': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]],
+#                      'walker': [[(True, 0.3, None, None, None), ourorange], [(False, 0.3, None, None, None), ourblue]]
+#                      }
 
 
-paths = [f'{BASE_PATH}/online_fb_quadruped_alltasks_vel',
-         f'{BASE_PATH}/online_fb_quadruped_alltasks',
-         f'{BASE_PATH}/online_fb_cheetah_alltasks',
-         f'{BASE_PATH}/online_fb_maze_alltasks',
-         f'{BASE_PATH}/online_fb_walker_alltasks',
-         f'{BASE_PATH}/online_fb_hopper_alltasks_2',
-         f'{BASE_PATH}/online_fb_hopper_alltasks_baseline',
+# paths = [f'{BASE_PATH}/online_fb_quadruped_alltasks_vel',
+#          f'{BASE_PATH}/online_fb_quadruped_alltasks',
+#          f'{BASE_PATH}/online_fb_cheetah_alltasks',
+#          f'{BASE_PATH}/online_fb_maze_alltasks',
+#          f'{BASE_PATH}/online_fb_walker_alltasks',
+#          f'{BASE_PATH}/online_fb_hopper_alltasks_2',
+#          f'{BASE_PATH}/online_fb_hopper_alltasks_baseline',
+#          ]
+
+# TASK_PATH = [paths[5], paths[6]]  # hopper:
+# TASK_PATH = [paths[2]] : cheetah
+
+####
+
+paths = [f'{BASE_PATH}/fb_quadruped',
+         f'{BASE_PATH}/fb_quadruped_2',
+         f'{BASE_PATH}/fb_cheetah',
+         f'{BASE_PATH}/fb_maze',
+         f'{BASE_PATH}/fb_walker',
+         f'{BASE_PATH}/fb_hopper',
          ]
+# group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling)
+final_hyperparams = {'hopper': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]],
+                     'maze': [[(True, 0.3, True, 100, True), ourorange], [(True, 0.3, True, 100, False), ourgreen], [(False, 0.3, True, 100, False), ourblue]],
+                     'cheetah': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]],
+                     'quadruped': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]],
+                     'walker': [[(True, 0.3, None, 100, True), ourorange], [(True, 0.3, None, 100, False), ourgreen], [(False, 0.3, None, 100, False), ourblue]]
+                     }
+dir_figs = '/home/nuria/phd/controllable_agent/figs/exp2'
+
+# TASK_PATH = [paths[5]] #hopper
+# TASK_PATH = [paths[2]] #cheetah
+# TASK_PATH = [paths[3]] #maze
+# TASK_PATH = [paths[4]] #walker
+TASK_PATH = [paths[0]]  # quadruped
+
+###
 
 grouped_files = defaultdict(list)
-TASK_PATH = [paths[5], paths[6]]  # hopper:
-# TASK_PATH = [paths[2]] : cheetah
+
 
 env = [e for e in list(domain_tasks.keys()) if e in TASK_PATH[0]][0]
 ignore_files = ['commit.txt', 'job_spec.sh']
@@ -100,7 +127,7 @@ for exp in files:
         "sampling", None)  # Default to None if missing
     # Use (uncertainty, mix_ratio) as the group key
     group_key = (uncertainty, mix_ratio, add_trunk, update_z_every,
-                 sampling) if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
+                 sampling)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
     print(group_key)
     num_eval_frames = config.get("eval_every_frames")
     # Store the eval.csv file path in the corresponding group
@@ -135,8 +162,8 @@ for group_key, paths in grouped_files.items():
 
 
 ##########################################
-# Plot reward per task
-SAVE = False
+# # Plot reward per task
+SAVE = True
 with plt.style.context(["grid"]):
     fig, axs = plt.subplots(1, len(grouped_data.keys()),
                             figsize=(10, 3))  # 1 plot for each env_task
@@ -196,14 +223,14 @@ with plt.style.context(["grid"]):
 
     axs[plt_num].legend()
     name_fig = TASK_PATH[0].split('/')[-1]
-    fig_path = f'{dir_figs}/{name_fig}_1'
+    fig_path = f'{dir_figs}/{name_fig}'
     if SAVE:
         plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
     else:
         pass
         # plt.show()
 
-# 3
+# ####
 
 # Plot avg reward
 SAVE = True
@@ -233,8 +260,7 @@ with plt.style.context(["grid"]):
             std = np.std(rewards, axis=0)
             steps = np.arange(len(mean))+1  # add 1 because we start at 1!
             # Show only part of the curve
-            if env != 'maze':
-                steps = steps[0:10]
+            steps = steps[0:10]
             mean = mean[0:len(steps)]
             std = std[0:len(steps)]
 
