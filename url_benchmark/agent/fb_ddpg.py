@@ -83,6 +83,8 @@ class FBDDPGAgentConfig:
     n_ensemble: int = 5
     sampling: bool = False  # use argmax to sample curious z (True), otw policy
     myopic: bool = True
+    num_z_samples: int = 100
+    num_obs_samples: int = 1000
 
 
 cs = ConfigStore.instance()
@@ -125,7 +127,7 @@ class FBDDPGAgent:
             self.actor = Actor(self.obs_dim, cfg.z_dim, self.action_dim,
                                cfg.feature_dim, cfg.hidden_dim,
                                preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
-        if self.cfg.uncertainty and not self.cfg.sampling:
+        if self.cfg.uncertainty and self.cfg.myopic and not self.cfg.sampling:
             self.high_expl_actor = HighLevelActor(self.obs_dim, cfg.z_dim, cfg.hidden_dim).to(cfg.device)
        
         f_dict = {'obs_dim': self.obs_dim, 'z_dim': cfg.z_dim, 'action_dim': self.action_dim,
@@ -158,7 +160,7 @@ class FBDDPGAgent:
         if cfg.obs_type == 'pixels':
             self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=cfg.lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=cfg.lr)
-        if self.cfg.uncertainty and not self.cfg.sampling:
+        if self.cfg.uncertainty and self.cfg.myopic and not self.cfg.sampling:
             self.high_expl_actor_opt = torch.optim.Adam(self.high_expl_actor.parameters(), lr=cfg.lr)
         self.fb_opt = torch.optim.Adam([{'params': self.forward_net.parameters()},  # type: ignore
                                         {'params': self.backward_net.parameters(), 'lr': cfg.lr_coef * cfg.lr}],
@@ -269,7 +271,7 @@ class FBDDPGAgent:
 
     def init_nonmyopic_curious_meta(self, obs: np.ndarray, replay_loader: tp.Optional[ReplayBuffer]) -> MetaDict:
         meta = OrderedDict()
-        num_steps = self.cfg.num_inference_steps  # type: ignore
+        num_steps = self.cfg.num_obs_samples  # type: ignore
         if len(replay_loader) * replay_loader._episodes_length[0] < num_steps: 
             # print("Not enough data for inference, random z")
             z = self.sample_z(1)
@@ -283,7 +285,7 @@ class FBDDPGAgent:
                 batch = batch.to(self.cfg.device)
                 # Compute reward:
                 with torch.no_grad():
-                    num_zs = 1000
+                    num_zs = self.cfg.num_z_samples
                     z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
                     for obs in batch.obs:
                         obs = obs.expand(num_zs, -1)
@@ -297,7 +299,6 @@ class FBDDPGAgent:
             obs, reward = torch.cat(obs_list, 0), torch.stack(reward_list).unsqueeze(dim=1)  # type: ignore
             obs_t, reward_t = obs[:num_steps], reward[:num_steps]
             meta = self.infer_meta_from_obs_and_rewards(obs_t, reward_t)
-        
         meta['updated'] = True
         return meta
 
@@ -307,7 +308,7 @@ class FBDDPGAgent:
             return self.init_nonmyopic_curious_meta(obs)
         if self.cfg.sampling:
             with torch.no_grad():
-                num_zs = 100
+                num_zs = self.cfg.num_z_samples
                 z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
                 obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).expand(num_zs, -1) # num_zs x obs_dim
                 h = self.encoder(obs)
@@ -669,7 +670,7 @@ class FBDDPGAgent:
                                       goal=goal))
 
         # update high expl actor
-        if self.cfg.uncertainty and not self.cfg.sampling:
+        if self.cfg.uncertainty and self.cfg.myopic and not self.cfg.sampling:
             metrics.update(self.update_high_expl_actor(obs, step))
 
         # update actor
