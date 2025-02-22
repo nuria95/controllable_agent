@@ -9,7 +9,7 @@ import cv2
 import imageio
 import numpy as np
 import wandb
-
+import warnings
 
 class VideoRecorder:
     def __init__(self,
@@ -47,18 +47,20 @@ class VideoRecorder:
                 frame = env.render()
             self.frames.append(frame)
 
-    def log_to_wandb(self) -> None:
+    def log_to_wandb(self, name) -> None:
         frames = np.transpose(np.array(self.frames), (0, 3, 1, 2))
         fps, skip = 6, 8
         wandb.log({
-            'eval/video':
+            f'eval/video/{name}':
             wandb.Video(frames[::skip, :, ::2, ::2], fps=fps, format="gif")
         })
 
     def save(self, file_name: str) -> None:
+        warnings.filterwarnings("ignore", module="imageio")
         if self.enabled:
             if self.use_wandb:
-                self.log_to_wandb()
+                name = '_'.join(file_name.replace('.mp4', '').split('_')[:-1])
+                self.log_to_wandb(name)
             assert self.save_dir is not None
             path = self.save_dir / file_name
             imageio.mimsave(str(path), self.frames, fps=self.fps)  # type: ignore

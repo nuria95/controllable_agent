@@ -292,7 +292,7 @@ class BaseWorkspace(tp.Generic[C]):
                 goal_rewards.append(episode_reward)
                 goal_distances.append(float(distance))
                 goal_successes.append(success)
-                self.video_recorder.save(f'{g}.mp4')
+                self.video_recorder.save(f'{g}_{self.global_frame}.mp4')
             # print(f"goal: {g}, avg_reward: {round(float(np.mean(goal_rewards)), 2)}, "
             #       f"avg_distance: {round(float(np.mean(goal_distances)), 5)}, "
             #       f"avg_success: {round(float(np.mean(goal_successes)), 5)}")
@@ -378,7 +378,7 @@ class BaseWorkspace(tp.Generic[C]):
                         normalized_scores.append(self.eval_env.get_normalized_score(total_reward))
                     rewards.append(total_reward)
                     episode += 1
-                    self.video_recorder.save(f'{self.global_frame}.mp4')
+                    self.video_recorder.save(f'{task}_{self.global_frame}.mp4')
 
                 total_avg_reward = float(np.mean(rewards))
                 total_tasks_rewards.append(total_avg_reward)
