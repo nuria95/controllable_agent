@@ -27,7 +27,7 @@ from url_benchmark import goals as _goals
 from .ddpg import MetaDict
 from .fb_modules import IdentityMap
 from .ddpg import Encoder
-from .fb_modules import Actor, DiagGaussianActor, ForwardMap, BackwardMap, OnlineCov, EnsembleMLP, HighLevelActor
+from .fb_modules import Actor, DiagGaussianActor, ForwardMap, BackwardMap, OnlineCov, EnsembleMLP, HighLevelActor, Critic, RNDCuriosity
 
 
 logger = logging.getLogger(__name__)
@@ -85,6 +85,9 @@ class FBDDPGAgentConfig:
     myopic: bool = True
     num_z_samples: int = 100
     num_obs_samples: int = 1000
+    rnd_coeff: float = 0.5
+    rnd: bool = False
+    rnd_embed_dim: int = 100
 
 
 cs = ConfigStore.instance()
@@ -114,6 +117,8 @@ class FBDDPGAgent:
             self.obs_dim = cfg.obs_shape[0]
         if cfg.feature_dim < self.obs_dim:
             logger.warning(f"feature_dim {cfg.feature_dim} should not be smaller that obs_dim {self.obs_dim}")
+        assert not (cfg.rnd and cfg.uncertainty), 'Cannot use both RND and uncertainty'
+        
         goal_dim = self.obs_dim
         if cfg.goal_space is not None:
             goal_dim = _goals.get_goal_space_dim(cfg.goal_space)
@@ -166,7 +171,14 @@ class FBDDPGAgent:
                                         {'params': self.backward_net.parameters(), 'lr': cfg.lr_coef * cfg.lr}],
                                        lr=cfg.lr)
 
-        if not self.cfg.myopic:
+        if self.cfg.rnd:
+            self.Q_rnd = Critic(self.obs_dim, self.action_dim, self.cfg.hidden_dim).to(cfg.device)
+            self.target_Q_rnd = Critic(self.obs_dim, self.action_dim, self.cfg.hidden_dim).to(cfg.device)
+            self.target_Q_rnd.load_state_dict(self.Q_rnd.state_dict())
+            self.Q_rnd_opt = torch.optim.Adam(self.Q_rnd.parameters(), lr=cfg.lr)
+            self.rnd_module = RNDCuriosity(self.obs_dim, self.cfg.hidden_dim, self.cfg.rnd_embed_dim, self.cfg.lr, cfg.device)
+
+        if self.cfg.uncertainty and not self.cfg.myopic:
             if self.cfg.update_z_proba > 0.:
                 print('Setting update z_proba to zero when use nonmyopic approach!')
                 self.cfg.update_z_proba = 0.
@@ -557,6 +569,11 @@ class FBDDPGAgent:
             q1_success = Q1 > Q2
         Q = torch.min(Q1, Q2)
         actor_loss = (self.cfg.temp * log_prob - Q).mean() if self.cfg.boltzmann else -Q.mean()
+        if self.cfg.rnd:
+            rnd_loss = -self.Q_rnd(obs, action).mean()
+            actor_loss += self.cfg.rnd_coeff * rnd_loss
+            metrics['actor_loss_rnd'] = rnd_loss.item() if self.cfg.rnd else 0
+            metrics['actor_loss_exploit'] = -Q.mean().item()
 
         # optimize actor
         self.actor_opt.zero_grad(set_to_none=True)
@@ -597,6 +614,23 @@ class FBDDPGAgent:
 
         if self.cfg.use_tb or self.cfg.use_wandb:
             metrics['high_actor_loss'] = actor_loss.item()
+        return metrics
+
+    def update_Qrnd(self, obs: torch.Tensor, action: torch.Tensor, discount: torch.Tensor, next_obs: torch.Tensor, z: torch.Tensor, step: int) -> tp.Dict[str, float]:
+        metrics: tp.Dict[str, float] = {}
+        values_rnd = self.Q_rnd(obs, action)
+
+        with torch.no_grad():
+            next_action = self.actor(next_obs, z, std=1.).sample()
+            next_values_rnd = self.target_Q_rnd(next_obs, next_action)
+        reward, rnd_loss = self.rnd_module.update_curiosity(next_obs)
+        value_loss = F.mse_loss(values_rnd, reward + discount * next_values_rnd)
+        self.Q_rnd_opt.zero_grad()
+        value_loss.backward()
+        self.Q_rnd_opt.step()
+
+        metrics['Qrnd_loss'] = value_loss.item()
+        metrics['RND_net_loss'] = rnd_loss.item()
         return metrics
 
     def aug_and_encode(self, obs: torch.Tensor) -> torch.Tensor:
@@ -673,6 +707,9 @@ class FBDDPGAgent:
         if self.cfg.uncertainty and self.cfg.myopic and not self.cfg.sampling:
             metrics.update(self.update_high_expl_actor(obs, step))
 
+        if self.cfg.rnd:
+            metrics.update(self.update_Qrnd(obs=obs, action=action, discount=discount, next_obs=next_obs, z=z, step=step))
+
         # update actor
         metrics.update(self.update_actor(obs, z, step))
 
@@ -688,4 +725,8 @@ class FBDDPGAgent:
                                      self.cfg.fb_target_tau)
         utils.soft_update_params(self.backward_net, self.backward_target_net,
                                  self.cfg.fb_target_tau)
+
+        if self.cfg.rnd:
+            utils.soft_update_params(self.Q_rnd, self.target_Q_rnd,
+                                     self.cfg.fb_target_tau)
         return metrics

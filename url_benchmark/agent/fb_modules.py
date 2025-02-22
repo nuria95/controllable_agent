@@ -323,3 +323,49 @@ class MultinputNet(nn.Module):
         assert len(tensors) == len(self.innets)
         out = sum(net(x) for net, x in zip(self.innets, tensors)) / len(self.innets)
         return self.outnet(out)  # type : ignore
+
+
+class Critic(nn.Module):
+    def __init__(self, obs_dim, action_dim, hidden_dim) -> None:
+        super().__init__()
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.Q = mlp(obs_dim + action_dim, hidden_dim, "ntanh", hidden_dim, "relu", 1)
+        self.apply(utils.weight_init)
+
+    def forward(self, obs, action):
+        h = torch.cat([obs, action], dim=-1)
+        Q = self.Q(h)
+        return Q
+
+
+class RNDNN(nn.Module):
+    def __init__(self, obs_dim, hidden_dim, out_dim):
+        super().__init__()
+        self.rnd = mlp(obs_dim, hidden_dim, 'relu', hidden_dim, 'relu', out_dim)
+        self.apply(utils.weight_init)
+
+    def forward(self, x):
+        x = self.rnd(x)
+        return x
+
+
+class RNDCuriosity:
+    def __init__(self, obs_dim, hidden_dim, out_dim, lr_rnd, device):
+        self.rnd_pred = RNDNN(obs_dim, hidden_dim, out_dim).to(device)
+        self.rnd_target = RNDNN(obs_dim, hidden_dim, out_dim).to(device)
+        for param in self.rnd_target.parameters():
+            param.requires_grad = False
+        self.optimizer = torch.optim.SGD(self.rnd_pred.parameters(), lr=lr_rnd)
+
+    def update_curiosity(self, obs: torch.Tensor) -> torch.Tensor:
+        # obs: (n_env, n_obs)
+        pred = self.rnd_pred(obs)
+        target = self.rnd_target(obs)
+        rew = torch.norm(pred - target, dim=-1)
+        loss = torch.mean((pred - target)**2)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return rew.detach(), loss.detach()
