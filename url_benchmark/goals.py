@@ -139,8 +139,8 @@ def simplified_manipulator(env: dmc.EnvWrapper) -> np.ndarray:
 @goal_spaces("hopper")
 def simplified_hopper(env: dmc.EnvWrapper) -> np.ndarray:
     # check the physics here:
-    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/walker.py
-    return np.array([env.physics.torso_upright(),
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/hopper.py
+    return np.array([env.physics.height(),
                      env.physics.speed()],
                     dtype=np.float32)
     
@@ -148,7 +148,7 @@ def simplified_hopper(env: dmc.EnvWrapper) -> np.ndarray:
 @goal_spaces("humanoid")
 def simplified_humanoid(env: dmc.EnvWrapper) -> np.ndarray:
     # check the physics here:
-    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/walker.py
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/humanoid.py
     return np.concatenate([[env.physics.head_height()],
                             [env.physics.torso_upright()],
                             env.physics.center_of_mass_velocity()],
