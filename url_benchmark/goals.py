@@ -150,9 +150,26 @@ def simplified_humanoid(env: dmc.EnvWrapper) -> np.ndarray:
     # check the physics here:
     # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/humanoid.py
     return np.concatenate([[env.physics.head_height()],
-                            [env.physics.torso_upright()],
-                            env.physics.center_of_mass_velocity()],
-                            dtype=np.float32)
+                           [env.physics.torso_upright()],
+                           env.physics.center_of_mass_velocity()],
+                          dtype=np.float32)
+
+
+@goal_spaces("cheetah")
+def simplified_cheetah(env: dmc.EnvWrapper) -> np.ndarray:
+    # check the physics here:
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/hopper.py
+    return np.array([env.physics.speed()],
+                    dtype=np.float32)
+
+
+@goal_spaces("cheetah")
+def simplified_cheetah_flip(env: dmc.EnvWrapper) -> np.ndarray:
+    # check the physics here:
+    # https://github.com/deepmind/dm_control/blob/d72c22f3bb89178bff38728957daf62965632c2f/dm_control/suite/hopper.py
+    return np.array([env.physics.speed(),
+                     env.physics.angmomentum()],
+                    dtype=np.float32)
 
 # @goal_spaces("quadruped")  # this one needs a specific task for the ball to be present
 # def quadruped_positions(env: dmc.EnvWrapper) -> np.ndarray:
@@ -267,7 +284,8 @@ def _make_env(domain: str) -> dmc.EnvWrapper:
             "point_mass_maze": "reach_bottom_right", 
             "manipulator": "bring_ball",
             "hopper": "hop",
-            "humanoid": "walk"}[domain]
+            "humanoid": "walk",
+            "cheetah": "walk"}[domain]
     return dmc.make(f"{domain}_{task}", obs_type="states", frame_stack=1, action_repeat=1, seed=12)
 
 def get_goal_space_dim(name: str) -> int:
