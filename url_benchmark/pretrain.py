@@ -71,8 +71,7 @@ class Config:
     custom_reward: tp.Optional[str] = None  # activates custom eval if not None
     final_tests: int = 10
     # checkpoint # num episode * length of episode
-    snapshot_at: tp.Tuple[int, ...] = (100, 200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500,
-                                       2000)
+    snapshot_at: tp.Tuple[int, ...] = (500, 600, 700, 800, 900, 1000, 1500, 2000)
     checkpoint_every: int = 100000
     load_model: tp.Optional[str] = None
     # training
@@ -601,7 +600,8 @@ class Workspace(BaseWorkspace[Config]):
                 meta_disagr = []
                 # save checkpoint to reload
                 if self.global_episode in self.cfg.snapshot_at:
-                    self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_data{self.global_episode}.pt'))
+                    # self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_data{self.global_episode}.pt'))
+                    self.save_checkpoint(self._checkpoint_filepath)
             
             # Very ugly way of keeping the xaxis of evals updated when not collecting more data (and hence not colling log above). TODO pass step to log !
             if self.replay_loader._full and self.global_frame % self.replay_loader._episodes_length[0] == 0:
