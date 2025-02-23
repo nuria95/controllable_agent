@@ -12,6 +12,7 @@ mujoco==2.3.5 # there is some issue with older versions otw https://github.com/N
 # git+https://github.com/deepmind/dm_control.git@644b3c6844cafd611cb2dfe82bc68bb6aed97292  # past this commit, it breaks
 dm-control==1.0.8  # let's keep it precise for now
 wandb
+wandb[media]
 tensorboard
 setuptools>=65.5.1
 opencv-python
