@@ -23,13 +23,13 @@ agent:
   batch_size: 256
   z_dim: 50
   num_inference_steps: 10000
-  mix_ratio: 0.5
+  mix_ratio: 0.3
   lr: 1.e-4
   lr_coef: 1.
   sampling: True
   update_z_every_step: 100
   update_z_proba: 1.
-  myopic: False
+  myopic: True
   num_z_samples: 100
   num_obs_samples: 1000
   rnd_coeff: 0.5
