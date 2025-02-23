@@ -6,9 +6,9 @@ defaults:
 
 
 task: cheetah_walk
-goal_space: null
+goal_space: simplified_cheetah
 custom_reward: cheetah_walk
-append_goal_to_observation: False
+append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: true
