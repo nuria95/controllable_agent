@@ -178,6 +178,8 @@ class BaseWorkspace(tp.Generic[C]):
         task = cfg.task
         if task.startswith('point_mass_maze'):
             self.domain = 'point_mass_maze'
+        if task.startswith('ball_in_cup'):
+            self.domain = 'ball_in_cup'
         else:
             self.domain = task.split('_', maxsplit=1)[0]
 
@@ -240,7 +242,7 @@ class BaseWorkspace(tp.Generic[C]):
             "manipulator": ['bring_ball'],
             "hopper": ['hop', 'stand', 'hop_backward', 'flip', 'flip_backward'],
             "humanoid": ['stand', 'walk', 'run'],
-
+            "ball_in_cup": ['catch'],
         }
 
     def _make_env(self) -> dmc.EnvWrapper:

@@ -396,9 +396,11 @@ def make(
     if name.startswith('point_mass_maze'):
         domain = 'point_mass_maze'
         _, _, _, task = name.split('_', 3)
+    elif name.startswith('ball_in_cup'):
+        domain = 'ball_in_cup'
+        _, _, _, task = name.split('_', 3)
     else:
         domain, task = name.split('_', 1)
-    domain = dict(cup='ball_in_cup').get(domain, domain)
     if sys.platform == "darwin":
         raise UnsupportedPlatform("Mac platform is not supported")
 

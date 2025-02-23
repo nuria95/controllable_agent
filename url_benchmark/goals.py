@@ -337,7 +337,11 @@ class DmcReward(BaseReward):
     def __init__(self, name: str) -> None:
         super().__init__()
         self.name = name
-        env_name, task_name = name.split("_", maxsplit=1)
+        if name.startswith('ball_in_cup'):
+            env_name = 'ball_in_cup'
+            _, _, _, task_name = name.split('_', 3)
+        else:
+            env_name, task_name = name.split("_", maxsplit=1)
         try:
             from dm_control import suite  # import
             from url_benchmark import custom_dmc_tasks as cdmc
