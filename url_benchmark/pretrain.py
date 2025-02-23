@@ -177,11 +177,10 @@ class BaseWorkspace(tp.Generic[C]):
         task = cfg.task
         if task.startswith('point_mass_maze'):
             self.domain = 'point_mass_maze'
-        if task.startswith('ball_in_cup'):
+        elif task.startswith('ball_in_cup'):
             self.domain = 'ball_in_cup'
         else:
             self.domain = task.split('_', maxsplit=1)[0]
-
         if cfg.goal_space is not None:
             if cfg.goal_space not in _goals.goal_spaces.funcs[self.domain]:
                 raise ValueError(f"Unregistered goal space {cfg.goal_space} for domain {self.domain}")
@@ -317,7 +316,10 @@ class BaseWorkspace(tp.Generic[C]):
 
     def eval(self, task=None) -> None:
         if task is not None:
-            self.domain_tasks = {self.domain: ['_'.join(task.split('_')[1:])]}
+            if task.startswith('ball_in_cup'):
+                self.domain_tasks = {self.domain: ['catch']}
+            else:
+                self.domain_tasks = {self.domain: ['_'.join(task.split('_')[1:])]}
         # Test if enough data to compute meta from samples, otw quit already!
         custom_reward = self._make_custom_reward(seed=0)
         if custom_reward is not None:
