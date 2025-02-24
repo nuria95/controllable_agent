@@ -1,0 +1,29 @@
+# default grid for debugging
+
+name: &experiment_name fb_walker_rnd_baseline_zdim_grid
+results_dir: /cluster/home/nuriaa/controllable_agent/results_clus
+git_branch: main
+git_commit: null
+script_path: url_benchmark/pretrain.py
+pre_script: cluster_setup.sh
+cluster_requirements:
+  cpus: 10
+  ram: 32000 #MB. Equivalent to mem_per_cpu times cpus
+  gpus: 1
+  gpu_mem: 20 #in GB
+  disk: 10G
+  time: 12:00:00
+default_params: url_benchmark/configs/pretrain_fb_walker.yaml
+grid:
+  #fixed: 0
+  #[param1, param2]: [[2.1, 3], [5, 5]]
+  experiment: *experiment_name
+  eval_every_frames: 100000
+  [uncertainty, agent.sampling, agent.rnd]: [[False, False, True ]]
+  agent.batch_size: [256]
+  agent.mix_ratio: [0.3]
+  agent.rnd_coeff: [0.5, 1, 10, 20]
+  replay_buffer_episodes: 1000
+  num_train_frames: 1000010
+  agent.update_z_every_step: [100]
+  seed: [10,20,30]                             
