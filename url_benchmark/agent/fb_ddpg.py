@@ -471,8 +471,8 @@ class FBDDPGAgent:
 
             # M.diagonal(dim1=-2, dim2=-1) returns diagonals over every ensemble so size is: E x batch
             # then we average over B and sum over E and over M1 and M2
-            fb_diag: tp.Any = -sum(sum(M.diagonal(dim1=-2, dim2=-1).mean(-1) for M in [M1, M2]))
-            # fb_diag: tp.Any = -sum(M.diagonal(dim1=-2, dim2=-1).mean() for M in [M1, M2])
+            # fb_diag: tp.Any = -sum(sum(M.diagonal(dim1=-2, dim2=-1).mean(-1) for M in [M1, M2]))
+            fb_diag: tp.Any = -sum(M.diagonal(dim1=-2, dim2=-1).mean() for M in [M1, M2])
         fb_loss = fb_offdiag + fb_diag
         # Q LOSS
         if self.cfg.q_loss:  # TODO This is not updated with curiosity
