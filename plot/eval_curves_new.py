@@ -11,15 +11,20 @@ import pandas as pd
 def get_label(group_key):
     if group_key[0] == True:
         label_ = 'ours'
-        if group_key[-1] == True:
+        if group_key[-2] == True:
             label_ += ' sampling'
+            if group_key[-1] == 0:
+                label_ += ' no_update'
         else:
             label_ += ' policy'
     else:
         label_ = 'baseline: uniform'
-    
+        if group_key[-1] == 0:
+            label_ += ' no_update'
+
     return label_
-    
+
+
 def smooth_fct(data, kernel_size=5):
     "Smooth data with convolution of kernel_size"
     # kernel_size=5
@@ -33,6 +38,7 @@ plt.rcParams.update(bundles.iclr2024(
 np.random.seed(190)  # for bootstrapping
 
 ourblue = (0.368, 0.507, 0.71)
+ourdarkblue = (0.368, 0.607, 0.9)
 ourorange = (0.881, 0.611, 0.142)
 ourgreen = (0.56, 0.692, 0.195)
 ourred = (0.923, 0.386, 0.209)
@@ -52,50 +58,83 @@ domain_tasks = {
     "quadruped": ['stand', 'walk', 'run', 'jump'],
     "walker": ['stand', 'walk', 'run', 'flip'],
     "maze": ['room1', 'room2', 'room3', 'room4'],
-    "hopper": ['hop', 'stand', 'flip'], #'hop_backward', 'flip', 'flip_backward'],
+    # 'hop_backward', 'flip', 'flip_backward'],
+    "hopper": ['hop', 'stand', 'flip'],
     "ball_in_cup": ['catch']
 }
 
 BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
 
+# group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling, update_z_proba)
+final_hyperparams = {'hopper': [
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    # [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(False, 0.3, None, 100, False, 1.), ourblue],
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+],
 
+    'maze': [
+    [(True, 0.3, True, 100, True, 1.), ourorange],
+    [(True, 0.3, True, 100, True, 0.), ourdarkred],
+    #   [(True, 0.3, True, 100, False, 1.), ourgreen],
+    [(False, 0.3, True, 100, False, 1.), ourblue],
+    [(False, 0.3, True, 100, False, 0.), ourdarkblue],
+
+],
+
+
+    'cheetah': [
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(True, 0.3, None, 100, True, 0.), ourorange],
+    #  [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(False, 0.3, None, 100, False, 1.), ourblue],
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+
+],
+
+    'quadruped': [
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    #    [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(False, 0.3, None, 100, False, 1.), ourblue],
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+
+],
+
+    'walker': [
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    # [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(False, 0.3, None, 100, False, 1.), ourblue],
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+
+],
+
+    'ball_in_cup': [
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    #  [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(False, 0.3, None, 100, False, 1.), ourblue],
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+
+]
+
+}
+dir_figs = '/home/nuria/phd/controllable_agent/figs/exp5'
 paths = [f'{BASE_PATH}/quadruped',
+         f'{BASE_PATH}/quadruped_zprobab',
          f'{BASE_PATH}/maze2',
          f'{BASE_PATH}/walker',
+         f'{BASE_PATH}/walker_zprobab',
          f'{BASE_PATH}/hopper2',
          f'{BASE_PATH}/fb_ball_in_cup',
          f'{BASE_PATH}/cheetah'
          ]
-# group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling)
-final_hyperparams = {'hopper': [[(True, 0.3, None, 100, True), ourorange], 
-                                [(True, 0.3, None, 100, False), ourgreen], 
-                                [(False, 0.3, None, 100, False), ourblue]],
-                     
-                     'maze': [[(True, 0.3, True, 100, True), ourorange], 
-                              [(True, 0.3, True, 100, False), ourgreen], 
-                              [(False, 0.3, True, 100, False), ourblue]],
-                     
-                     'cheetah': [[(True, 0.3, None, 100, True), ourorange], 
-                                 [(True, 0.3, None, 100, False), ourgreen], 
-                                 [(False, 0.3, None, 100, False), ourblue]],
-                     
-                     'quadruped': [[(True, 0.3, None, 100, True), ourorange], 
-                                   [(True, 0.3, None, 100, False), ourgreen], 
-                                   [(False, 0.3, None, 100, False), ourblue]],
-                     
-                     'walker': [[(True, 0.3, None, 100, True), ourorange], 
-                                [(True, 0.3, None, 100, False), ourgreen], 
-                                [(False, 0.3, None, 100, False), ourblue]],
-                     
-                     'ball_in_cup': [[(True, 0.3, None, 100, True), ourorange], 
-                                     [(True, 0.3, None, 100, False), ourgreen], 
-                                     [(False, 0.3, None, 100, False), ourblue]]
-                     
-                     }
-dir_figs = '/home/nuria/phd/controllable_agent/figs/exp4'
 
+TASK_PATH = [paths[0], paths[1]]  # quadruped
+TASK_PATH = [paths[3], paths[4]]  # quadruped
 
-TASK_PATH = [paths[5]]  # quadruped
 
 ###
 
@@ -130,9 +169,12 @@ for exp in files:
         "update_z_every_step", None)  # Default to None if missing
     sampling = config.get("agent").get(
         "sampling", None)  # Default to None if missing
+
+    update_z_proba = config.get("agent").get(
+        "update_z_proba", 1.)  # Default to None if missing
     # Use (uncertainty, mix_ratio) as the group key
     group_key = (uncertainty, mix_ratio, add_trunk, update_z_every,
-                 sampling)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
+                 sampling, update_z_proba)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
     print(group_key)
     num_eval_frames = config.get("eval_every_frames")
     # Store the eval.csv file path in the corresponding group
@@ -207,7 +249,7 @@ with plt.style.context(["grid"]):
                 # print(f"Group {group_key}: {mean[-1]:.2f} ± {std[-1]:.2f}")
                 # Plot the mean and std
                 # label_ = f"ours: {group_key}" if group_key[0] == True else f"baseline: {group_key}"
-                
+
                 label_ = get_label(group_key)
 
                 axs[plt_num].plot(
