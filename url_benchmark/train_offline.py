@@ -105,7 +105,7 @@ class Workspace(pretrain.BaseWorkspace[OfflineConfig]):
         while train_until_step(self.global_step):
             # try to evaluate
             if eval_every_step(self.global_step):
-                self.logger.log('eval_total_time', self.timer.total_time(), self.global_step)
+                # self.logger.log('eval_total_time', self.timer.total_time(), self.global_step)
                 if self.cfg.custom_reward == "maze_multi_goal":
                     self.eval_maze_goals()
                 else:

@@ -5,18 +5,18 @@ defaults:
   - _self_
 
 # used with train_offline.py and withouth load_replay buffer!
-task: quadruped_walk
-goal_space: simplified_quadruped_vel
+task: walker_walk
+goal_space: simplified_walker
 replay_buffer_episodes: 1000 # how much episodes use from the 'expl_agent' buffer
 expl_agent: rnd
-custom_reward: quadruped_walk
+custom_reward: walker_walk
 append_goal_to_observation: True
 uncertainty: False
 eval_every_steps: 10000
 use_wandb: true
 warmup: false
 seed: 0
-experiment: offline_quadruped
+experiment: offline_walker
 discount: 0.98
 num_grad_steps: 1000000
 
