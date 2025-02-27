@@ -70,47 +70,52 @@ BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
 
 # group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling, update_z_proba)
 final_hyperparams = {'hopper': [
-    [(True, 0.3, None, 100, True, 1.), ourorange],
+   
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+     [(True, 0.3, None, 100, True, 1.), ourorange],
 ],
 
     'maze': [
-    [(True, 0.3, True, 100, True, 1.), ourorange],
     [(True, 0.3, True, 100, True, 0.), ourdarkred],
     #   [(True, 0.3, True, 100, False, 1.), ourgreen],
     [(False, 0.3, True, 100, False, 1.), ourblue],
     [(False, 0.3, True, 100, False, 0.), ourdarkblue],
+    [(True, 0.3, True, 100, True, 1.), ourorange],
+
 
 ],
 
 
     'cheetah': [
-    [(True, 0.3, None, 100, True, 1.), ourorange],
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
     #  [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+
 
 ],
 
     'quadruped': [
-    [(True, 0.3, None, 100, True, 1.), ourorange],
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
     #    [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+
 
 ],
 
     'walker': [
-    [(True, 0.3, None, 100, True, 1.), ourorange],
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(True, 0.3, None, 100, True, 1.), ourorange],
+
 
 ],
 
@@ -149,6 +154,7 @@ TASK_PATHS = [
     [paths[6], paths[7]], # hopper
     [paths[8], paths[9]], # cheetah
 ]
+yaxis_cut = True
 
 for TASK_PATH in TASK_PATHS:
     ###
@@ -227,10 +233,13 @@ for TASK_PATH in TASK_PATHS:
     # # Plot reward per task
     SAVE = True
     with plt.style.context(["grid"]):
-        fig, axs = plt.subplots(1, len(grouped_data.keys()),
+        fig, axs = plt.subplots(1, len(grouped_data.keys())-1,
                                 figsize=(10, 3))  # 1 plot for each env_task
         plt_num = -1
         for env_task, groups in grouped_data.items():
+            if "episode_reward" == env_task: # dunnot plot avg when showing all tasks
+                continue
+            print(env_task)   
             plt_num += 1
             max_ylim = 0
 
@@ -256,6 +265,8 @@ for TASK_PATH in TASK_PATHS:
                     # Show only part of the curve
                     if env != 'maze':
                         steps = steps[0:10]
+                    else:
+                        steps = steps[0:12]
                     if env == 'ball_in_cup':
                         steps = steps[0:4]
                     mean = mean[0:len(steps)]
@@ -276,9 +287,11 @@ for TASK_PATH in TASK_PATHS:
                     axs[plt_num].set_xlabel(
                     f'Environment steps$\\times 10^5$ ', fontsize=15)
                     axs[plt_num].set_ylabel('Task reward', fontsize=15)
-                    max_ylim = max(max(mean), max_ylim) + 50
-                    # axs[plt_num].set_ylim([0, max_ylim])
-                    axs[plt_num].set_ylim([0, 1000])
+                    max_ylim = max(max(mean), max_ylim)
+                    if yaxis_cut:
+                        axs[plt_num].set_ylim([0, max_ylim + 50])
+                    else:
+                        axs[plt_num].set_ylim([0, 1000])
                     # axs[plt_num].set_xlim([0, 10])
                     axs[plt_num].tick_params(axis='x', labelsize=12)
                     axs[plt_num].tick_params(axis='y', labelsize=12)
@@ -289,7 +302,8 @@ for TASK_PATH in TASK_PATHS:
 
 
         # axs[plt_num].legend()
-        name_fig = TASK_PATH[0].split('/')[-1]
+        yaxis = 'yaxiscut' if yaxis_cut else ''
+        name_fig = TASK_PATH[0].split('/')[-1] + yaxis
         fig_path = f'{dir_figs}/{name_fig}'
         if SAVE:
             plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
@@ -329,6 +343,8 @@ for TASK_PATH in TASK_PATHS:
                 # Show only part of the curve
                 if env != 'maze':
                     steps = steps[0:10]
+                else:
+                    steps = steps[0:12]
                 mean = mean[0:len(steps)]
                 std = std[0:len(steps)]
 
@@ -344,8 +360,11 @@ for TASK_PATH in TASK_PATHS:
                 axs[plt_num].set_xlabel(
                     f'Environment steps$\\times 10^5$ ', fontsize=15)
                 axs[plt_num].set_ylabel('Task reward', fontsize=15)
-                max_ylim = max(max(mean), max_ylim) + 50
-                axs[plt_num].set_ylim([0, 1000])
+                max_ylim = max(max(mean), max_ylim)
+                if yaxis_cut:
+                    axs[plt_num].set_ylim([0, max_ylim + 50])
+                else:
+                    axs[plt_num].set_ylim([0, 1000])
                 # axs[plt_num].set_xlim([0, 10])
                 axs[plt_num].tick_params(axis='x', labelsize=12)
                 axs[plt_num].tick_params(axis='y', labelsize=12)
@@ -355,7 +374,8 @@ for TASK_PATH in TASK_PATHS:
                 # axs[plt_num].grid(False) # removing grid in the background
 
         # axs[plt_num].legend()
-        name_fig = TASK_PATH[0].split('/')[-1]
+        yaxis = 'yaxiscut' if yaxis_cut else ''
+        name_fig = TASK_PATH[0].split('/')[-1] + yaxis
         fig_path = f'{dir_figs}/{name_fig}_avg'
         if SAVE:
             plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
