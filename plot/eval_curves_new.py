@@ -66,7 +66,7 @@ domain_tasks = {
     "walker": ['stand', 'walk', 'run', 'flip'],
     "maze": ['room1', 'room2', 'room3', 'room4'],
     # 'hop_backward', 'flip', 'flip_backward'],
-    "hopper": ['hop', 'stand', 'flip'] #, 'hop_backward', 'flip_backward'],
+    "hopper": ['hop', 'stand', 'flip'], #, 'hop_backward', 'flip_backward'],
     "ball_in_cup": ['catch']
 }
 
@@ -169,7 +169,7 @@ TASK_PATHS = [
     [paths[9], paths[10]],  # hopper
     [paths[11], paths[12], paths[13]],  # cheetah
 ]
-yaxis_cut = False
+yaxis_cut = True
 
 for TASK_PATH in TASK_PATHS:
     ###
