@@ -23,6 +23,7 @@ def get_label(group_key):
                 style_ = 'dashed'
         else:
             label_ += ' policy'
+            style_ = 'dashed'
     else:
         label_ = 'baseline: uniform'
         if group_key[-1] == 0:
@@ -76,7 +77,7 @@ BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
 final_hyperparams = {'hopper': [
 
     [(True, 0.3, None, 100, True, 0.), ourorange],
-    # [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(True, 0.3, None, 100, False, 1.), ourdarkred],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
@@ -84,7 +85,7 @@ final_hyperparams = {'hopper': [
 
     'maze': [
     [(True, 0.3, True, 100, True, 0.), ourorange],
-    #   [(True, 0.3, True, 100, False, 1.), ourgreen],
+    [(True, 0.3, True, 100, False, 1.), ourdarkred],
     [(False, 0.3, True, 100, False, 1.), ourblue],
     [(False, 0.3, True, 100, False, 0.), ourblue],
     [(True, 0.3, True, 100, True, 1.), ourorange],
@@ -95,7 +96,7 @@ final_hyperparams = {'hopper': [
 
     'cheetah': [
     [(True, 0.3, None, 100, True, 0.), ourorange],
-    #  [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(True, 0.3, None, 100, False, 1.), ourdarkred],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
@@ -105,7 +106,7 @@ final_hyperparams = {'hopper': [
 
     'quadruped': [
     [(True, 0.3, None, 100, True, 0.), ourorange],
-    #    [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(True, 0.3, None, 100, False, 1.), ourdarkred],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
@@ -115,7 +116,7 @@ final_hyperparams = {'hopper': [
 
     'walker': [
     [(True, 0.3, None, 100, True, 0.), ourorange],
-    # [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(True, 0.3, None, 100, False, 1.), ourdarkred],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
@@ -126,7 +127,7 @@ final_hyperparams = {'hopper': [
     'ball_in_cup': [
     [(True, 0.3, None, 100, True, 1.), ourorange],
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
-    #  [(True, 0.3, None, 100, False, 1.), ourgreen],
+    [(True, 0.3, None, 100, False, 1.), ourdarkred],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourblue]
 
@@ -135,7 +136,7 @@ final_hyperparams = {'hopper': [
 }
 
 
-dir_figs = '/home/nuria/phd/controllable_agent/figs/exp5'
+dir_figs = '/home/nuria/phd/controllable_agent/figs/exp_extra_baselines'
 paths = [f'{BASE_PATH}/quadruped',
          f'{BASE_PATH}/quadruped_zprobab',  # rerunning longer
          f'{BASE_PATH}/offline_rnd_quadruped',
@@ -169,7 +170,7 @@ TASK_PATHS = [
     [paths[9], paths[10]],  # hopper
     [paths[11], paths[12], paths[13]],  # cheetah
 ]
-yaxis_cut = False
+yaxis_cut = True
 
 for TASK_PATH in TASK_PATHS:
     ###
