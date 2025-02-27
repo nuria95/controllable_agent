@@ -1,0 +1,31 @@
+# default grid for debugging
+
+name: &experiment_name humanoid_a_exploration
+results_dir: /cluster/home/mvlastelica/controllable_agent/results_clus
+git_branch: main
+git_commit: null
+script_path: url_benchmark/pretrain.py
+pre_script: cluster_setup.sh
+cluster_requirements:
+  cpus: 4
+  ram: 32000 #MB. Equivalent to mem_per_cpu times cpus
+  gpus: 1
+  gpu_mem: 20 #in GB
+  disk: 10G
+  time: 23:00:00
+default_params: url_benchmark/configs/pretrain_fb_humanoid.yaml
+grid:
+  #fixed: 0
+  #[param1, param2]: [[2.1, 3], [5, 5]]
+  experiment: *experiment_name
+  eval_every_frames: 100000
+  [uncertainty, agent.sampling]: [[True, False]]
+  agent.expl_strategy: [act_greedy_cum_var_z_learn]
+  agent.meta_strategy: [meta] # just random z  agent.myopic: True
+  agent.batch_size: [256]
+  agent.mix_ratio: [0.3]
+  replay_buffer_episodes: 5000
+  num_train_frames: 5000010
+  agent.update_z_every_step: [100,300]
+  num_eval_episodes: 30
+  seed: [10,20,30,40]                             
