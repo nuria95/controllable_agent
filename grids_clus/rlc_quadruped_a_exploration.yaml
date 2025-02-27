@@ -1,7 +1,7 @@
 # default grid for debugging
 name: &experiment_name quadruped_a_exploration
 results_dir: /cluster/home/mvlastelica/controllable_agent/results_clus
-git_branch: main
+git_branch: marin
 git_commit: null
 script_path: url_benchmark/pretrain.py
 pre_script: cluster_setup.sh

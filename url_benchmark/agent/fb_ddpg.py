@@ -90,7 +90,7 @@ class FBDDPGAgentConfig:
     rnd: bool = False
     rnd_embed_dim: int = 100
     meta_strategy: str = 'meta'
-    expl_strategy: str = 'meta'
+    expl_strategy: str = 'act_rand'
 
 
 cs = ConfigStore.instance()
