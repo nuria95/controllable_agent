@@ -19,7 +19,7 @@ grid:
   #[param1, param2]: [[2.1, 3], [5, 5]]
   experiment: *experiment_name
   eval_every_frames: 100000
-    [uncertainty, agent.sampling]: [[True, False]]
+  [uncertainty, agent.sampling]: [[True, False]]
   agent.batch_size: [256]
   agent.expl_strategy: [act_greedy_cum_var_z_learn, act_rand]
   agent.meta_strategy: [meta] # just random z
