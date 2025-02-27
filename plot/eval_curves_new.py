@@ -9,20 +9,23 @@ import pandas as pd
 
 
 def get_label(group_key):
+    style_ = 'solid'
     if group_key[0] == True:
         label_ = 'ours'
         if group_key[-2] == True:
             label_ += ' sampling'
             if group_key[-1] == 0:
                 label_ += ' no_update'
+                style_ = 'dashed'
         else:
             label_ += ' policy'
     else:
         label_ = 'baseline: uniform'
         if group_key[-1] == 0:
             label_ += ' no_update'
+            style_ = 'dashed'
 
-    return label_
+    return label_, style_
 
 
 def smooth_fct(data, kernel_size=5):
@@ -86,7 +89,7 @@ final_hyperparams = {'hopper': [
 
     'cheetah': [
     [(True, 0.3, None, 100, True, 1.), ourorange],
-    [(True, 0.3, None, 100, True, 0.), ourorange],
+    [(True, 0.3, None, 100, True, 0.), ourdarkred],
     #  [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourdarkblue],
@@ -123,70 +126,93 @@ final_hyperparams = {'hopper': [
 }
 dir_figs = '/home/nuria/phd/controllable_agent/figs/exp5'
 paths = [f'{BASE_PATH}/quadruped',
-         f'{BASE_PATH}/quadruped_zprobab',
-         f'{BASE_PATH}/maze2',
+         f'{BASE_PATH}/quadruped_zprobab', # rerunning longer
+
+         f'{BASE_PATH}/maze3', 
+         f'{BASE_PATH}/maze3_zprobab',
+
          f'{BASE_PATH}/walker',
-         f'{BASE_PATH}/walker_zprobab',
-         f'{BASE_PATH}/hopper2',
-         f'{BASE_PATH}/fb_ball_in_cup',
-         f'{BASE_PATH}/cheetah'
+         f'{BASE_PATH}/walker_zprobab2', 
+
+         f'{BASE_PATH}/hopper', 
+         f'{BASE_PATH}/hopper_zprobab',
+
+        #  f'{BASE_PATH}/fb_ball_in_cup',
+         f'{BASE_PATH}/cheetah2',
+         f'{BASE_PATH}/cheetah_zprobab',
          ]
 
-TASK_PATH = [paths[0], paths[1]]  # quadruped
-TASK_PATH = [paths[3], paths[4]]  # quadruped
+TASK_PATHS = [
+    [paths[0], paths[1]],  # quadruped
+    [paths[2], paths[3]],  # maze
+    [paths[4], paths[5]], # walker
+    [paths[6], paths[7]], # hopper
+    [paths[8], paths[9]], # cheetah
+]
+
+for TASK_PATH in TASK_PATHS:
+    ###
+
+    grouped_files = defaultdict(list)
 
 
-###
+    env = [e for e in list(domain_tasks.keys()) if e in TASK_PATH[0]][0]
+    ignore_files = ['commit.txt', 'job_spec.sh']
+    files = [os.path.join(t, file) for t in TASK_PATH for file in os.listdir(
+        t) if file not in ignore_files]
 
-grouped_files = defaultdict(list)
+    for exp in files:
+        config_path = os.path.join(exp, "config.yaml")
+        eval_path = os.path.join(exp, "eval.csv")
 
+        # Ensure both config.yaml and eval.csv exist
+        if not os.path.exists(config_path) or not os.path.exists(eval_path):
+            print(f'Config path {config_path} or {eval_path} does not exist')
+            continue
 
-env = [e for e in list(domain_tasks.keys()) if e in TASK_PATH[0]][0]
-ignore_files = ['commit.txt', 'job_spec.sh']
-files = [os.path.join(t, file) for t in TASK_PATH for file in os.listdir(
-    t) if file not in ignore_files]
+        # Read config.yaml
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
 
-for exp in files:
-    config_path = os.path.join(exp, "config.yaml")
-    eval_path = os.path.join(exp, "eval.csv")
+        # Extract hyperparameters
+        uncertainty = config.get("uncertainty")  # Default to False if missing
+        mix_ratio = config.get("agent").get(
+            "mix_ratio", None)  # Default to None if missing
+        add_trunk = config.get("agent").get(
+            "add_trunk", None)  # Default to None if missing
+        update_z_every = config.get("agent").get(
+            "update_z_every_step", None)  # Default to None if missing
+        sampling = config.get("agent").get(
+            "sampling", None)  # Default to None if missing
 
-    # Ensure both config.yaml and eval.csv exist
-    if not os.path.exists(config_path) or not os.path.exists(eval_path):
-        print(f'Config path {config_path} or {eval_path} does not exist')
-        continue
+        update_z_proba = config.get("agent").get(
+            "update_z_proba", 1.)  # Default to None if missing
+        # Use (uncertainty, mix_ratio) as the group key
+        group_key = (uncertainty, mix_ratio, add_trunk, update_z_every,
+                    sampling, update_z_proba)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
+        print(group_key)
+        num_eval_frames = config.get("eval_every_frames")
+        # Store the eval.csv file path in the corresponding group
+        # Dict with keys the different set of params, and values the list of files with same params
+        grouped_files[group_key].append(eval_path)
 
-    # Read config.yaml
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
+    # Dict of dicts. Keys are task names, values are dictionary of group name and value the sequence of rewards
+    grouped_data = defaultdict(dict)
+    for task in domain_tasks[env]:
+        key_rew = f"episode_reward_{env}_{task}" if env != 'maze' else f"reward_{task}"
+        grouped_data[key_rew] = defaultdict(dict)
 
-    # Extract hyperparameters
-    uncertainty = config.get("uncertainty")  # Default to False if missing
-    mix_ratio = config.get("agent").get(
-        "mix_ratio", None)  # Default to None if missing
-    add_trunk = config.get("agent").get(
-        "add_trunk", None)  # Default to None if missing
-    update_z_every = config.get("agent").get(
-        "update_z_every_step", None)  # Default to None if missing
-    sampling = config.get("agent").get(
-        "sampling", None)  # Default to None if missing
+        for group_key, paths in grouped_files.items():
+            grouped_data[key_rew][group_key] = list()
+            for path in paths:
+                print(f"Group {group_key}, {key_rew}: {path}")
+                df = pd.read_csv(path)
+                rewards = df[key_rew].tolist()  # Convert column to list
+                # Store data in the grouped dictionary
+                grouped_data[key_rew][group_key].append(rewards)
 
-    update_z_proba = config.get("agent").get(
-        "update_z_proba", 1.)  # Default to None if missing
-    # Use (uncertainty, mix_ratio) as the group key
-    group_key = (uncertainty, mix_ratio, add_trunk, update_z_every,
-                 sampling, update_z_proba)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
-    print(group_key)
-    num_eval_frames = config.get("eval_every_frames")
-    # Store the eval.csv file path in the corresponding group
-    # Dict with keys the different set of params, and values the list of files with same params
-    grouped_files[group_key].append(eval_path)
-
-# Dict of dicts. Keys are task names, values are dictionary of group name and value the sequence of rewards
-grouped_data = defaultdict(dict)
-for task in domain_tasks[env]:
-    key_rew = f"episode_reward_{env}_{task}" if env != 'maze' else f"reward_{task}"
-    grouped_data[key_rew] = defaultdict(dict)
-
+    key_rew = 'episode_reward'
+    # Adding avg reward among all tasks
     for group_key, paths in grouped_files.items():
         grouped_data[key_rew][group_key] = list()
         for path in paths:
@@ -196,40 +222,102 @@ for task in domain_tasks[env]:
             # Store data in the grouped dictionary
             grouped_data[key_rew][group_key].append(rewards)
 
-key_rew = 'episode_reward'
-# Adding avg reward among all tasks
-for group_key, paths in grouped_files.items():
-    grouped_data[key_rew][group_key] = list()
-    for path in paths:
-        print(f"Group {group_key}, {key_rew}: {path}")
-        df = pd.read_csv(path)
-        rewards = df[key_rew].tolist()  # Convert column to list
-        # Store data in the grouped dictionary
-        grouped_data[key_rew][group_key].append(rewards)
+
+    ##########################################
+    # # Plot reward per task
+    SAVE = True
+    with plt.style.context(["grid"]):
+        fig, axs = plt.subplots(1, len(grouped_data.keys()),
+                                figsize=(10, 3))  # 1 plot for each env_task
+        plt_num = -1
+        for env_task, groups in grouped_data.items():
+            plt_num += 1
+            max_ylim = 0
+
+            for group_key in groups.keys():
+                print(group_key)
+
+                if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
+                    color = [l[1]
+                            for l in final_hyperparams[env] if l[0] == group_key][0]
+                    # Compute mean and std of the rewards
+                    rews_seeds = groups[group_key]
+                    print(
+                        f'Number of files for group: {group_key}: {len(rews_seeds)}')
+                    # In case some exps are longer than others\
+                    min_len = min([len(rew) for rew in rews_seeds])
+                    rews_seeds = [rew[:min_len] for rew in rews_seeds]
+
+                    rewards = np.array(rews_seeds)
+                    mean = np.mean(rewards, axis=0)
+                    # mean = smooth_fct(mean, kernel_size=2)
+                    std = np.std(rewards, axis=0)
+                    steps = np.arange(len(mean))+1  # add 1 because we start at 1!
+                    # Show only part of the curve
+                    if env != 'maze':
+                        steps = steps[0:10]
+                    if env == 'ball_in_cup':
+                        steps = steps[0:4]
+                    mean = mean[0:len(steps)]
+                    std = std[0:len(steps)]
+
+                    # print(f"Group {group_key}: {mean[-1]:.2f} ± {std[-1]:.2f}")
+                    # Plot the mean and std
+                    # label_ = f"ours: {group_key}" if group_key[0] == True else f"baseline: {group_key}"
+
+                    label_, linestyle_ = get_label(group_key)
+
+                    axs[plt_num].plot(
+                        steps, mean, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
+                    axs[plt_num].fill_between(
+                        steps, mean - std, mean + std, color=color, alpha=0.15)
+                    title = (' ').join(env_task.split('_')[-2::])
+                    axs[plt_num].set_title(title, fontsize=20)
+                    axs[plt_num].set_xlabel(
+                    f'Environment steps$\\times 10^5$ ', fontsize=15)
+                    axs[plt_num].set_ylabel('Task reward', fontsize=15)
+                    max_ylim = max(max(mean), max_ylim) + 50
+                    # axs[plt_num].set_ylim([0, max_ylim])
+                    axs[plt_num].set_ylim([0, 1000])
+                    # axs[plt_num].set_xlim([0, 10])
+                    axs[plt_num].tick_params(axis='x', labelsize=12)
+                    axs[plt_num].tick_params(axis='y', labelsize=12)
+                    # Bold and bigger x-axis ticks
+                    axs[plt_num].set_xticks(np.arange(0, len(steps)+1, 2))
+                    # axs[plt_num].tick_params(top=False, right=False)
+                    # axs[plt_num].grid(False) # removing grid in the background
 
 
-##########################################
-# # Plot reward per task
-SAVE = True
-with plt.style.context(["grid"]):
-    fig, axs = plt.subplots(1, len(grouped_data.keys()),
-                            figsize=(10, 3))  # 1 plot for each env_task
-    plt_num = -1
-    for env_task, groups in grouped_data.items():
-        plt_num += 1
+        # axs[plt_num].legend()
+        name_fig = TASK_PATH[0].split('/')[-1]
+        fig_path = f'{dir_figs}/{name_fig}'
+        if SAVE:
+            plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
+        else:
+            pass
+            # plt.show()
+
+    # ####
+
+    # Plot avg reward
+    SAVE = True
+    with plt.style.context(["grid"]):
+        fig, axs = plt.subplots(1, 1, figsize=(4, 3))  # 1 plot for each env_task
+        axs = np.atleast_1d(axs)  # Converts a single Axes object into a 1D array
+
+        plt_num = 0
         max_ylim = 0
-
+        groups = grouped_data['episode_reward']
         for group_key in groups.keys():
             print(group_key)
-
             if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
                 color = [l[1]
-                         for l in final_hyperparams[env] if l[0] == group_key][0]
+                        for l in final_hyperparams[env] if l[0] == group_key][0]
                 # Compute mean and std of the rewards
                 rews_seeds = groups[group_key]
                 print(
                     f'Number of files for group: {group_key}: {len(rews_seeds)}')
-                # In case some exps are longer than others\
+                # In case some exps are longer than others
                 min_len = min([len(rew) for rew in rews_seeds])
                 rews_seeds = [rew[:min_len] for rew in rews_seeds]
 
@@ -241,109 +329,35 @@ with plt.style.context(["grid"]):
                 # Show only part of the curve
                 if env != 'maze':
                     steps = steps[0:10]
-                if env == 'ball_in_cup':
-                    steps = steps[0:4]
                 mean = mean[0:len(steps)]
                 std = std[0:len(steps)]
 
                 # print(f"Group {group_key}: {mean[-1]:.2f} ± {std[-1]:.2f}")
                 # Plot the mean and std
-                # label_ = f"ours: {group_key}" if group_key[0] == True else f"baseline: {group_key}"
-
-                label_ = get_label(group_key)
-
+                label_, linestyle_ = get_label(group_key)
                 axs[plt_num].plot(
-                    steps, mean, label=f"{label_}", color=color, linewidth=2.0)
+                    steps, mean, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
                 axs[plt_num].fill_between(
                     steps, mean - std, mean + std, color=color, alpha=0.15)
-                title = (' ').join(env_task.split('_')[-2::])
+                title = env
                 axs[plt_num].set_title(title, fontsize=20)
                 axs[plt_num].set_xlabel(
-                    f'Datasize$\\times$ {num_eval_frames}', fontsize=15)
+                    f'Environment steps$\\times 10^5$ ', fontsize=15)
                 axs[plt_num].set_ylabel('Task reward', fontsize=15)
                 max_ylim = max(max(mean), max_ylim) + 50
-                if env == 'hopper':
-                    axs[plt_num].set_ylim([0, max_ylim])
-                else:
-                    axs[plt_num].set_ylim([0, 1000])
+                axs[plt_num].set_ylim([0, 1000])
                 # axs[plt_num].set_xlim([0, 10])
                 axs[plt_num].tick_params(axis='x', labelsize=12)
                 axs[plt_num].tick_params(axis='y', labelsize=12)
                 # Bold and bigger x-axis ticks
-                axs[plt_num].set_xticks(np.arange(0, len(steps), 3)+1)
+                axs[plt_num].set_xticks(np.arange(0, len(steps)+1))
                 # axs[plt_num].tick_params(top=False, right=False)
+                # axs[plt_num].grid(False) # removing grid in the background
 
-    axs[plt_num].legend()
-    name_fig = TASK_PATH[0].split('/')[-1]
-    fig_path = f'{dir_figs}/{name_fig}'
-    if SAVE:
-        plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
-    else:
-        pass
-        # plt.show()
-
-# ####
-
-# Plot avg reward
-SAVE = True
-with plt.style.context(["grid"]):
-    fig, axs = plt.subplots(1, 1, figsize=(4, 3))  # 1 plot for each env_task
-    axs = np.atleast_1d(axs)  # Converts a single Axes object into a 1D array
-
-    plt_num = 0
-    max_ylim = 0
-    groups = grouped_data['episode_reward']
-    for group_key in groups.keys():
-        print(group_key)
-        if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
-            color = [l[1]
-                     for l in final_hyperparams[env] if l[0] == group_key][0]
-            # Compute mean and std of the rewards
-            rews_seeds = groups[group_key]
-            print(
-                f'Number of files for group: {group_key}: {len(rews_seeds)}')
-            # In case some exps are longer than others
-            min_len = min([len(rew) for rew in rews_seeds])
-            rews_seeds = [rew[:min_len] for rew in rews_seeds]
-
-            rewards = np.array(rews_seeds)
-            mean = np.mean(rewards, axis=0)
-            # mean = smooth_fct(mean, kernel_size=2)
-            std = np.std(rewards, axis=0)
-            steps = np.arange(len(mean))+1  # add 1 because we start at 1!
-            # Show only part of the curve
-            steps = steps[0:10]
-            mean = mean[0:len(steps)]
-            std = std[0:len(steps)]
-
-            # print(f"Group {group_key}: {mean[-1]:.2f} ± {std[-1]:.2f}")
-            # Plot the mean and std
-            label_ = f"ours: {group_key}" if group_key[0] == True else f"baseline: {group_key}"
-            axs[plt_num].plot(
-                steps, mean, label=f"{label_}", color=color, linewidth=2.0)
-            axs[plt_num].fill_between(
-                steps, mean - std, mean + std, color=color, alpha=0.15)
-            title = env + '_avg_reward'
-            axs[plt_num].set_title(title, fontsize=20)
-            axs[plt_num].set_xlabel(
-                f'Datasize$\\times$ {num_eval_frames}', fontsize=15)
-            axs[plt_num].set_ylabel('Task reward', fontsize=15)
-            max_ylim = max(max(mean), max_ylim) + 50
-            if env == 'hopper':
-                axs[plt_num].set_ylim([0, max_ylim])
-            else:
-                axs[plt_num].set_ylim([0, 1000])
-            # axs[plt_num].set_xlim([0, 10])
-            axs[plt_num].tick_params(axis='x', labelsize=12)
-            axs[plt_num].tick_params(axis='y', labelsize=12)
-            # Bold and bigger x-axis ticks
-            axs[plt_num].set_xticks(np.arange(0, len(steps), 3)+1)
-            # axs[plt_num].tick_params(top=False, right=False)
-
-    axs[plt_num].legend()
-    name_fig = TASK_PATH[0].split('/')[-1]
-    fig_path = f'{dir_figs}/{name_fig}_avg'
-    if SAVE:
-        plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
-    else:
-        plt.show()
+        # axs[plt_num].legend()
+        name_fig = TASK_PATH[0].split('/')[-1]
+        fig_path = f'{dir_figs}/{name_fig}_avg'
+        if SAVE:
+            plt.savefig(f'{fig_path}.pdf', bbox_inches='tight')
+        else:
+            plt.show()
