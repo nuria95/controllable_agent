@@ -34,8 +34,8 @@ agent:
   rnd_coeff: 0.5
   rnd: False
   rnd_embed_dim: 100
-  meta_strategy: goal_curious_meta
-  expl_strategy: act_greedy_cum_var_z # act_rand
+  meta_strategy: meta # just random
+  expl_strategy: act_greedy_cum_var_z_learn # act_rand
 
 num_eval_episodes: 2
 hydra:

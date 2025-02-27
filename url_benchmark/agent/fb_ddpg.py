@@ -140,7 +140,10 @@ class FBDDPGAgent:
                                preprocess=cfg.preprocess, add_trunk=self.cfg.add_trunk).to(cfg.device)
         if self.cfg.uncertainty and self.cfg.myopic and not self.cfg.sampling:
             self.high_expl_actor = HighLevelActor(self.obs_dim, cfg.z_dim, cfg.hidden_dim).to(cfg.device)
-       
+        if self.cfg.expl_strategy == 'act_greedy_cum_var_z_learn':
+            self.expl_actor = HighLevelActor(self.obs_dim, self.action_dim, cfg.hidden_dim).to(cfg.device)
+            self.expl_actor_opt = torch.optim.Adam(self.expl_actor.parameters(), lr=cfg.lr)
+
         f_dict = {'obs_dim': self.obs_dim, 'z_dim': cfg.z_dim, 'action_dim': self.action_dim,
                   'feature_dim': cfg.feature_dim, 'hidden_dim': cfg.hidden_dim,
                   'preprocess': cfg.preprocess, 'add_trunk': self.cfg.add_trunk}
@@ -355,7 +358,7 @@ class FBDDPGAgent:
                 batch2 = replay_loader.sample(self.cfg.num_obs_samples//2).to(self.cfg.device)
                 obs = batch.obs
                 # zs = self.sample_z(size=num_zs*obs.shape[0], device=self.cfg.device)
-                z = self.backward_net(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs)
+                z = self.backward_net(batch2.next_goal if self.cfg.goal_space is not None else batch.next_obs)
                 assert obs.size(0) == z.size(0)
                 acts = self.actor(obs, z, std=0.2).mean  # num_zs x act_dim take the mean
                 F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
@@ -492,41 +495,43 @@ class FBDDPGAgent:
     def mc_eval_obs_act_var(self, obs, act, num_z_samples) -> tp.Any:
         """MC evaluate state-action pairs on expected variance over z."""
         bs = obs.size(0)
-        z = self.sample_z(size=num_z_samples*bs, device=self.cfg.device).view(num_z_samples, bs, -1)
-        obs = obs[None].expand(num_z_samples, -1, -1).view(num_z_samples*bs, -1)
-        act = act[None].expand(num_z_samples, -1, -1).view(num_z_samples*bs, -1)
+        z = self.sample_z(size=num_z_samples*bs, device=self.cfg.device).view(num_z_samples*bs, -1)
+        obs = obs[None].repeat(num_z_samples, 1, 1).contiguous().view(num_z_samples*bs, -1)
+        act = act[None].repeat(num_z_samples, 1, 1).contiguous().view(num_z_samples*bs, -1)
         F1, F2 = self.forward_net((obs, z, act))  # es x batch x z_dim
         Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # (es, bs, 1)
         epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # bs, 1
         # pessimistic
         avg_epistemic_std = torch.min(epistemic_std1, epistemic_std2).view(num_z_samples, bs).mean(dim=0)
         return avg_epistemic_std
-    def act_greedy_cum_var_z(self, obs, meta, eval_mode, num_acts=20, num_z_samples=10) -> tp.Any:
+    def act_greedy_cum_var_z(self, obs, meta, step, eval_mode, num_acts=20, num_z_samples=10) -> tp.Any:
         """Act such that the cumulative variance over z is maximized wrt. the action."""
         # sample random actions, maybe sample from the policy TODO
+        obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)  # type: ignore
         bs = obs.size(0)
         acts = torch.zeros(num_acts, self.action_dim, device=self.cfg.device).uniform_(-1.0, 1.0)
-        obs = obs[None]
         obs = obs.expand(num_acts, -1, -1).view(num_acts*bs,-1)
         # evaluate actions
-        act_score = self.mc_eval_obs_act_var(obs, acts, num_z_samples=num_z_samples) # 
+        act_score = self.mc_eval_obs_act_var(obs, acts, num_z_samples=num_z_samples).flatten() # 
         best_idx = torch.argmax(act_score)
-        return acts[best_idx].cpu()
-
-
+        return acts[best_idx,None].cpu()
+    def act_greedy_cum_var_z_learn(self, obs, meta, step, eval_mode, std=0.2) -> tp.Any:
+        """Act such that the cumulative variance over z is maximized wrt. the action with a learned actor."""
+        obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)
+        a = self.expl_actor(obs, std=std).sample()
+        return a.cpu()
 
 
     """
     END EXPLORATION POLICIES
     """
-    
     def act(self, obs, meta, step, eval_mode) -> tp.Any:
         with torch.no_grad():
             if eval_mode:
                 with torch.no_grad():
-                    return self.act_z_mu(obs, meta, step, eval_mode).cpu().numpy()[0]
+                    return self.act_z_mu(obs=obs, meta=meta, step=step, eval_mode=eval_mode).cpu().numpy()[0]
             else:
-                return getattr(self, f'{self.cfg.expl_strategy}')(obs, meta, step, eval_mode).cpu().numpy()[0]
+                return getattr(self, f'{self.cfg.expl_strategy}')(obs=obs, meta=meta, step=step, eval_mode=eval_mode).cpu().numpy()[0]
         return action.cpu().numpy()[0]
 
     def compute_z_correl(self, time_step: TimeStep, meta: MetaDict) -> float:
@@ -761,6 +766,22 @@ class FBDDPGAgent:
         if self.cfg.use_tb or self.cfg.use_wandb:
             metrics['high_actor_loss'] = actor_loss.item()
         return metrics
+    
+    def update_expl_actor(self, obs: torch.Tensor, step: int) -> tp.Dict[str, float]:
+        """Update the exploration actor."""
+        metrics: tp.Dict[str, float] = {}
+        dist = self.expl_actor(obs, 0.05)
+        a = dist.sample()
+        actor_score = self.mc_eval_obs_act_var(obs, a, num_z_samples=10)
+        actor_loss = -actor_score.mean()
+        # optimize actor
+        self.expl_actor_opt.zero_grad(set_to_none=True)
+        actor_loss.backward()
+        self.expl_actor_opt.step()
+
+        if self.cfg.use_tb or self.cfg.use_wandb:
+            metrics['expl_actor_loss'] = actor_loss.item()
+        return metrics
 
     def update_Qrnd(self, obs: torch.Tensor, action: torch.Tensor, discount: torch.Tensor, next_obs: torch.Tensor, z: torch.Tensor, step: int) -> tp.Dict[str, float]:
         metrics: tp.Dict[str, float] = {}
@@ -855,6 +876,8 @@ class FBDDPGAgent:
 
         if self.cfg.rnd:
             metrics.update(self.update_Qrnd(obs=obs, action=action, discount=discount, next_obs=next_obs, z=z, step=step))
+        if self.cfg.expl_strategy == 'act_greedy_cum_var_z_learn':
+            metrics.update(self.update_expl_actor(obs, step))
 
         # update actor
         metrics.update(self.update_actor(obs, z, step))
