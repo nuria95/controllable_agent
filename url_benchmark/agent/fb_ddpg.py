@@ -479,19 +479,12 @@ class FBDDPGAgent:
             stddev = utils.schedule(self.cfg.stddev_schedule, step)
             dist = self.actor(h, z, stddev)
         return dist.sample()
-
+    
     def act_rand(self, obs, meta, step, eval_mode) -> tp.Any:
         """Random exploration strategy, dist comes from z."""
-        if not hasattr(self, 'act_dim'):
-            obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)  # type: ignore
-            h = self.encoder(obs)
-            z = torch.as_tensor(meta['z'], device=self.cfg.device).unsqueeze(0)  # type: ignore
-            dist = self.actor(h, z, 0.01)
-            action = dist.sample()
-            self.act_dim = action.shape[1]
-        else:
-            action = torch.zeros(1, self.act_dim, device=self.cfg.device)
+        action = torch.zeros(1, self.action_dim, device=self.cfg.device)
         return action.uniform_(-1.0, 1.0).cpu()
+    
     def mc_eval_obs_act_var(self, obs, act, num_z_samples) -> tp.Any:
         """MC evaluate state-action pairs on expected variance over z."""
         bs = obs.size(0)
@@ -515,6 +508,7 @@ class FBDDPGAgent:
         act_score = self.mc_eval_obs_act_var(obs, acts, num_z_samples=num_z_samples).flatten() # 
         best_idx = torch.argmax(act_score)
         return acts[best_idx,None].cpu()
+    
     def act_greedy_cum_var_z_learn(self, obs, meta, step, eval_mode, std=0.2) -> tp.Any:
         """Act such that the cumulative variance over z is maximized wrt. the action with a learned actor."""
         obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)
