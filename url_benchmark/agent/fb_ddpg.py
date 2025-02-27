@@ -16,6 +16,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from hydra.core.config_store import ConfigStore
+from hydra.utils import instantiate
 import omegaconf
 from dm_env import specs
 
@@ -88,10 +89,14 @@ class FBDDPGAgentConfig:
     rnd_coeff: float = 0.5
     rnd: bool = False
     rnd_embed_dim: int = 100
+    meta_strategy: str = 'meta'
+    expl_strategy: str = 'meta'
 
 
 cs = ConfigStore.instance()
 cs.store(group="agent", name="fb_ddpg", node=FBDDPGAgentConfig)
+
+
 
 
 class FBDDPGAgent:
@@ -103,6 +108,7 @@ class FBDDPGAgent:
         cfg = FBDDPGAgentConfig(**kwargs)
         self.cfg = cfg
         assert len(cfg.action_shape) == 1
+        assert hasattr(self, 'init_'+cfg.meta_strategy)
         self.action_dim = cfg.action_shape[0]
         self.solved_meta: tp.Any = None
 
@@ -281,40 +287,114 @@ class FBDDPGAgent:
         meta['updated'] = True
         return meta
 
+    # def greedy_var_act(self, obs: torch.Tensor) -> MetaDict:
+    
+    #     obs = obs
+    #     assert obs.ndim == 2
+    #     num_zs = 10
+    #     num_act = 10
+    #     z = self.sample_z(size=num_zs*obs.shape[0], device=self.cfg.device)
+    #     obs_rep = torch.repeat_interleave(obs, num_zs*num_act, dim=0)
+    #     z = z.repeat_interleave(num_act, 0).repeat(obs.shape[0], 1) # repeat z for each action then repeat for each obs
+    #     acts = self.actor(obs_rep, z, std=1).sample()  # num_zs x act_dim take the mean
+    #     F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
+    #     Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
+    #     epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+    #     # take highest of the two
+    #     epistemic_std = torch.max(epistemic_std1, epistemic_std2)
+    #     # take max over actions
+    #     epistemic_std = epistemic_std.view(-1, num_act).max(dim=1).values
+
+    #     reward = epistemic_std.view(-1, num_zs).mean(dim=1)
+    #     meta = self.infer_meta_from_obs_and_rewards(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs, reward[:, None])
+        
+    #     return act
+
     def init_nonmyopic_curious_meta(self, obs: np.ndarray, replay_loader: tp.Optional[ReplayBuffer]) -> MetaDict:
         meta = OrderedDict()
         num_steps = self.cfg.num_obs_samples  # type: ignore
+        num_zs = self.cfg.num_z_samples
         if len(replay_loader) * replay_loader._episodes_length[0] < num_steps:
-            # print("Not enough data for inference, random z")
+            print("Not enough data for inference, random z")
             z = self.sample_z(1)
             z = z.squeeze().numpy()
             meta['z'] = z
         else:
-            obs_list, reward_list = [], []
-            batch_size = 0
-            while batch_size < num_steps:
-                batch = replay_loader.sample(self.cfg.batch_size)
-                batch = batch.to(self.cfg.device)
-                # Compute reward:
-                with torch.no_grad():
-                    num_zs = self.cfg.num_z_samples
-                    z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
-                    for obs in batch.obs:
-                        obs = obs.expand(num_zs, -1)
-                        acts = self.actor(obs, z, std=1.).mean  # num_zs x act_dim take the mean
-                        F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
-                        Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
-                        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
-                        reward_list.append(epistemic_std1.mean()) #TODO MEAN? std1 only?
-                obs_list.append(batch.goal if self.cfg.goal_space is not None else batch.obs)
-                batch_size += batch.obs.size(0)
-            obs, reward = torch.cat(obs_list, 0), torch.stack(reward_list).unsqueeze(dim=1)  # type: ignore
-            obs_t, reward_t = obs[:num_steps], reward[:num_steps]
-            meta = self.infer_meta_from_obs_and_rewards(obs_t, reward_t)
+            with torch.no_grad():
+                batch = replay_loader.sample(self.cfg.num_obs_samples).to(self.cfg.device)
+                obs = batch.obs
+                zs = self.sample_z(size=num_zs*obs.shape[0], device=self.cfg.device)
+                obs_rep = torch.repeat_interleave(obs, num_zs, dim=0)
+                z_rep = zs
+                obs, z = obs_rep, z_rep
+                assert obs.size(0) == z.size(0)
+                acts = self.actor(obs, z, std=0.2).mean  # num_zs x act_dim take the mean
+                F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
+                Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
+                epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+                # take highest of the two
+                epistemic_std = torch.min(epistemic_std1, epistemic_std2)
+                reward = epistemic_std.view(-1, num_zs).mean(dim=1)
+                meta = self.infer_meta_from_obs_and_rewards(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs, reward[:, None])
         meta['updated'] = True
+
+        return meta
+    
+    def init_goal_curious_meta(self, obs: np.ndarray, replay_loader: tp.Optional[ReplayBuffer]) -> MetaDict:
+        meta = OrderedDict()
+        num_steps = self.cfg.num_obs_samples  # type: ignore
+        num_zs = self.cfg.num_z_samples
+        if len(replay_loader) * replay_loader._episodes_length[0] < num_steps:
+            print("Not enough data for inference, random z")
+            z = self.sample_z(1)
+            z = z.squeeze().numpy()
+            meta['z'] = z
+        else:
+            with torch.no_grad():
+                batch = replay_loader.sample(self.cfg.num_obs_samples//2).to(self.cfg.device)
+                batch2 = replay_loader.sample(self.cfg.num_obs_samples//2).to(self.cfg.device)
+                obs = batch.obs
+                # zs = self.sample_z(size=num_zs*obs.shape[0], device=self.cfg.device)
+                z = self.backward_net(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs)
+                assert obs.size(0) == z.size(0)
+                acts = self.actor(obs, z, std=0.2).mean  # num_zs x act_dim take the mean
+                F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
+                Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
+                epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+                # be pessimistic wrt exploration
+                epistemic_std = torch.min(epistemic_std1, epistemic_std2)
+                reward = epistemic_std.view(-1, num_zs).mean(dim=1)
+                meta = self.infer_meta_from_obs_and_rewards(batch.next_goal if self.cfg.goal_space is not None else batch.next_obs, reward[:, None])
+        meta['updated'] = True
+
         return meta
 
-    def init_curious_meta(self, obs: np.ndarray) -> MetaDict:
+
+        #     batch_size = 0
+        #     obs = batch.obs
+        #     while batch_size < num_steps:
+        #         batch = replay_loader.sample(self.cfg.batch_size)
+        #         batch = batch.to(self.cfg.device)
+        #         # Compute reward:
+        #         with torch.no_grad():
+        #             num_zs = self.cfg.num_z_samples
+        #             z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
+        #             for obs in batch.obs:
+        #                 obs = obs.expand(num_zs, -1)
+        #                 acts = self.actor(obs, z, std=1.).mean  # num_zs x act_dim take the mean
+        #                 F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
+        #                 Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
+        #                 epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+        #                 reward_list.append(epistemic_std1.mean()) #TODO MEAN? std1 only?
+        #         obs_list.append(batch.goal if self.cfg.goal_space is not None else batch.next_obs)
+        #         batch_size += batch.obs.size(0)
+        #     obs, reward = torch.cat(obs_list, 0), torch.stack(reward_list).unsqueeze(dim=1)  # type: ignore
+        #     obs_t, reward_t = obs[:num_steps], reward[:num_steps]
+        #     meta = self.infer_meta_from_obs_and_rewards(obs_t, reward_t)
+        # meta['updated'] = True
+        # return meta
+
+    def init_curious_meta(self, obs: np.ndarray, replay_buffer=None) -> MetaDict:
         meta = OrderedDict()
         if not self.cfg.myopic:
             return self.init_nonmyopic_curious_meta(obs)
@@ -354,11 +434,17 @@ class FBDDPGAgent:
         obs: np.ndarray = None,
     ) -> MetaDict:
         if global_step % self.cfg.update_z_every_step == 0 and np.random.rand() < self.cfg.update_z_proba:
-            return self.init_meta() if not self.cfg.uncertainty else self.init_curious_meta(obs)
+            return  getattr(self, f'init_{self.cfg.meta_strategy}')(obs, replay_loader)
         meta['updated'] = False
         return meta
 
-    def act(self, obs, meta, step, eval_mode) -> tp.Any:
+
+    """
+    EXPLORATION POLICIES
+    """
+    
+    def act_z_mu(self, obs, meta, step, eval_mode) -> tp.Any:
+        """Z exploration strategy, z initialized somehow, dist comes from z."""
         obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)  # type: ignore
         h = self.encoder(obs)
         z = torch.as_tensor(meta['z'], device=self.cfg.device).unsqueeze(0)  # type: ignore
@@ -367,8 +453,8 @@ class FBDDPGAgent:
         else:
             stddev = utils.schedule(self.cfg.stddev_schedule, step)
             dist = self.actor(h, z, stddev)
+        action = dist.mean
         if eval_mode:
-            action = dist.mean
             if self.cfg.additional_metric:
                 # the following is doing extra computation only used for metrics,
                 # it should be deactivated eventually
@@ -377,10 +463,70 @@ class FBDDPGAgent:
                 F_rand_s = self.forward_net((obs, z, torch.zeros_like(action).uniform_(-1.0, 1.0)))
                 Qs = [torch.min(*(torch.einsum('sd, sd -> s', F, z) for F in Fs)) for Fs in [F_mean_s, F_rand_s]]
                 self.actor_success = (Qs[0] > Qs[1]).cpu().numpy().tolist()
+        return dist.mean
+    
+    def act_z_sample(self, obs, meta, step, eval_mode) -> tp.Any:
+        """Z exploration strategy, z initialized somehow, dist comes from z."""
+        obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)  # type: ignore
+        h = self.encoder(obs)
+        z = torch.as_tensor(meta['z'], device=self.cfg.device).unsqueeze(0)  # type: ignore
+        if self.cfg.boltzmann:
+            dist = self.actor(h, z)
         else:
+            stddev = utils.schedule(self.cfg.stddev_schedule, step)
+            dist = self.actor(h, z, stddev)
+        return dist.sample()
+
+    def act_rand(self, obs, meta, step, eval_mode) -> tp.Any:
+        """Random exploration strategy, dist comes from z."""
+        if not hasattr(self, 'act_dim'):
+            obs = torch.as_tensor(obs, device=self.cfg.device, dtype=torch.float32).unsqueeze(0)  # type: ignore
+            h = self.encoder(obs)
+            z = torch.as_tensor(meta['z'], device=self.cfg.device).unsqueeze(0)  # type: ignore
+            dist = self.actor(h, z, 0.01)
             action = dist.sample()
-            if step < self.cfg.num_expl_steps:
-                action.uniform_(-1.0, 1.0)
+            self.act_dim = action.shape[1]
+        else:
+            action = torch.zeros(1, self.act_dim, device=self.cfg.device)
+        return action.uniform_(-1.0, 1.0).cpu()
+    def mc_eval_obs_act_var(self, obs, act, num_z_samples) -> tp.Any:
+        """MC evaluate state-action pairs on expected variance over z."""
+        bs = obs.size(0)
+        z = self.sample_z(size=num_z_samples*bs, device=self.cfg.device).view(num_z_samples, bs, -1)
+        obs = obs[None].expand(num_z_samples, -1, -1).view(num_z_samples*bs, -1)
+        act = act[None].expand(num_z_samples, -1, -1).view(num_z_samples*bs, -1)
+        F1, F2 = self.forward_net((obs, z, act))  # es x batch x z_dim
+        Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # (es, bs, 1)
+        epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # bs, 1
+        # pessimistic
+        avg_epistemic_std = torch.min(epistemic_std1, epistemic_std2).view(num_z_samples, bs).mean(dim=0)
+        return avg_epistemic_std
+    def act_greedy_cum_var_z(self, obs, meta, eval_mode, num_acts=20, num_z_samples=10) -> tp.Any:
+        """Act such that the cumulative variance over z is maximized wrt. the action."""
+        # sample random actions, maybe sample from the policy TODO
+        bs = obs.size(0)
+        acts = torch.zeros(num_acts, self.action_dim, device=self.cfg.device).uniform_(-1.0, 1.0)
+        obs = obs[None]
+        obs = obs.expand(num_acts, -1, -1).view(num_acts*bs,-1)
+        # evaluate actions
+        act_score = self.mc_eval_obs_act_var(obs, acts, num_z_samples=num_z_samples) # 
+        best_idx = torch.argmax(act_score)
+        return acts[best_idx].cpu()
+
+
+
+
+    """
+    END EXPLORATION POLICIES
+    """
+    
+    def act(self, obs, meta, step, eval_mode) -> tp.Any:
+        with torch.no_grad():
+            if eval_mode:
+                with torch.no_grad():
+                    return self.act_z_mu(obs, meta, step, eval_mode).cpu().numpy()[0]
+            else:
+                return getattr(self, f'{self.cfg.expl_strategy}')(obs, meta, step, eval_mode).cpu().numpy()[0]
         return action.cpu().numpy()[0]
 
     def compute_z_correl(self, time_step: TimeStep, meta: MetaDict) -> float:
