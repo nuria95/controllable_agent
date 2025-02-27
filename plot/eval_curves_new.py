@@ -66,7 +66,7 @@ domain_tasks = {
     "walker": ['stand', 'walk', 'run', 'flip'],
     "maze": ['room1', 'room2', 'room3', 'room4'],
     # 'hop_backward', 'flip', 'flip_backward'],
-    "hopper": ['hop', 'stand', 'flip'],
+    "hopper": ['hop', 'stand', 'flip'] #, 'hop_backward', 'flip_backward'],
     "ball_in_cup": ['catch']
 }
 
@@ -75,18 +75,18 @@ BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
 # group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling, update_z_proba)
 final_hyperparams = {'hopper': [
 
-    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    [(True, 0.3, None, 100, True, 0.), ourorange],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
 ],
 
     'maze': [
-    [(True, 0.3, True, 100, True, 0.), ourdarkred],
+    [(True, 0.3, True, 100, True, 0.), ourorange],
     #   [(True, 0.3, True, 100, False, 1.), ourgreen],
     [(False, 0.3, True, 100, False, 1.), ourblue],
-    [(False, 0.3, True, 100, False, 0.), ourdarkblue],
+    [(False, 0.3, True, 100, False, 0.), ourblue],
     [(True, 0.3, True, 100, True, 1.), ourorange],
 
 
@@ -94,30 +94,30 @@ final_hyperparams = {'hopper': [
 
 
     'cheetah': [
-    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    [(True, 0.3, None, 100, True, 0.), ourorange],
     #  [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
 
 
 ],
 
     'quadruped': [
-    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    [(True, 0.3, None, 100, True, 0.), ourorange],
     #    [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
 
 
 ],
 
     'walker': [
-    [(True, 0.3, None, 100, True, 0.), ourdarkred],
+    [(True, 0.3, None, 100, True, 0.), ourorange],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue],
+    [(False, 0.3, None, 100, False, 0.), ourblue],
     [(True, 0.3, None, 100, True, 1.), ourorange],
 
 
@@ -128,7 +128,7 @@ final_hyperparams = {'hopper': [
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
     #  [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourdarkblue]
+    [(False, 0.3, None, 100, False, 0.), ourblue]
 
 ]
 
@@ -169,7 +169,7 @@ TASK_PATHS = [
     [paths[9], paths[10]],  # hopper
     [paths[11], paths[12], paths[13]],  # cheetah
 ]
-yaxis_cut = True
+yaxis_cut = False
 
 for TASK_PATH in TASK_PATHS:
     ###
@@ -299,23 +299,50 @@ for TASK_PATH in TASK_PATHS:
                         steps, mean, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
                     axs[plt_num].fill_between(
                         steps, mean - std, mean + std, color=color, alpha=0.15)
-                    title = (' ').join(env_task.split('_')[-2::])
-                    axs[plt_num].set_title(title, fontsize=20)
-                    axs[plt_num].set_xlabel(
-                        f'Environment steps$\\times 10^5$ ', fontsize=15)
-                    axs[plt_num].set_ylabel('Task reward', fontsize=15)
+
                     max_ylim = max(max(mean), max_ylim)
-                    if yaxis_cut:
-                        axs[plt_num].set_ylim([0, max_ylim + 50])
-                    else:
-                        axs[plt_num].set_ylim([0, 1000])
-                    # axs[plt_num].set_xlim([0, 10])
-                    axs[plt_num].tick_params(axis='x', labelsize=12)
-                    axs[plt_num].tick_params(axis='y', labelsize=12)
-                    # Bold and bigger x-axis ticks
-                    axs[plt_num].set_xticks(np.arange(0, len(steps)+1, 2))
-                    # axs[plt_num].tick_params(top=False, right=False)
-                    # axs[plt_num].grid(False) # removing grid in the background
+
+                elif group_key == 'rnd':  # rnd_buffer_agent
+                    color = 'k'
+                    # Compute mean and std of the rewards
+                    rews_seeds = groups[group_key]
+                    print(
+                        f'Number of files for group: {group_key}: {len(rews_seeds)}')
+                    # In case some exps are longer than others
+                    # min_len = min([len(rew) for rew in rews_seeds])
+                    rews_seeds = [rew for rew in rews_seeds if len(
+                        rew) > 36]  # remove short runs
+                    assert len(
+                        rews_seeds) > 7, f'Removed too many runs! {len(rews_seeds)}, {env}'
+                    min_len = min([len(rew) for rew in rews_seeds])
+                    rews_seeds = [rew[:min_len] for rew in rews_seeds]
+
+                    rewards = np.array(rews_seeds)
+                    print('Num of grads steps x 1000', len(rewards[0]))
+                    mean = np.mean(rewards, axis=0)
+                    max_ylim = max(max(mean), max_ylim)
+                    label_, linestyle_ = get_label(group_key)
+                    rnd_topline = [mean[-1]] * len(steps)
+                    axs[plt_num].plot(
+                        steps, rnd_topline, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
+
+            # Adjust plot per each task nicer
+            title = (' ').join(env_task.replace('episode_reward_','').split('_')) if env!='maze' else 'maze ' + env_task.replace('reward_','')
+            axs[plt_num].set_title(title, fontsize=20)
+            axs[plt_num].set_xlabel(
+                f'Environment steps$\\times 10^5$ ', fontsize=15)
+            axs[plt_num].set_ylabel('Task reward', fontsize=15)
+            if yaxis_cut:
+                axs[plt_num].set_ylim([0, max_ylim + 50])
+            else:
+                axs[plt_num].set_ylim([0, 1000])
+            # axs[plt_num].set_xlim([0, 10])
+            axs[plt_num].tick_params(axis='x', labelsize=12)
+            axs[plt_num].tick_params(axis='y', labelsize=12)
+            # Bold and bigger x-axis ticks
+            axs[plt_num].set_xticks(np.arange(0, len(steps)+1, 2))
+            # axs[plt_num].tick_params(top=False, right=False)
+            # axs[plt_num].grid(False) # removing grid in the background
 
         # axs[plt_num].legend()
         yaxis = 'yaxiscut' if yaxis_cut else ''
@@ -374,22 +401,7 @@ for TASK_PATH in TASK_PATHS:
                 axs[plt_num].fill_between(
                     steps, mean - std, mean + std, color=color, alpha=0.15)
                 title = env
-                axs[plt_num].set_title(title, fontsize=20)
-                axs[plt_num].set_xlabel(
-                    f'Environment steps$\\times 10^5$ ', fontsize=15)
-                axs[plt_num].set_ylabel('Task reward', fontsize=15)
                 max_ylim = max(max(mean), max_ylim)
-                if yaxis_cut:
-                    axs[plt_num].set_ylim([0, max_ylim + 50])
-                else:
-                    axs[plt_num].set_ylim([0, 1000])
-                # axs[plt_num].set_xlim([0, 10])
-                axs[plt_num].tick_params(axis='x', labelsize=12)
-                axs[plt_num].tick_params(axis='y', labelsize=12)
-                # Bold and bigger x-axis ticks
-                axs[plt_num].set_xticks(np.arange(0, len(steps)+1))
-                # axs[plt_num].tick_params(top=False, right=False)
-                # axs[plt_num].grid(False) # removing grid in the background
 
             elif group_key == 'rnd':  # rnd_buffer_agent
                 color = 'k'
@@ -409,13 +421,28 @@ for TASK_PATH in TASK_PATHS:
                 rewards = np.array(rews_seeds)
                 print('Num of grads steps x 1000', len(rewards[0]))
                 mean = np.mean(rewards, axis=0)
-                if env == 'maze':
-                    breakpoint()
+                max_ylim = max(max(mean), max_ylim)
                 label_, linestyle_ = get_label(group_key)
                 rnd_topline = [mean[-1]] * len(steps)
                 axs[plt_num].plot(
                     steps, rnd_topline, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
 
+        # Adjust the plot
+        if yaxis_cut:
+            axs[plt_num].set_ylim([0, max_ylim + 50])
+        else:
+            axs[plt_num].set_ylim([0, 1000])
+        # axs[plt_num].set_xlim([0, 10])
+        axs[plt_num].tick_params(axis='x', labelsize=12)
+        axs[plt_num].tick_params(axis='y', labelsize=12)
+        # Bold and bigger x-axis ticks
+        axs[plt_num].set_xticks(np.arange(0, len(steps)+1))
+        # axs[plt_num].tick_params(top=False, right=False)
+        # axs[plt_num].grid(False) # removing grid in the background
+        axs[plt_num].set_title(title, fontsize=20)
+        axs[plt_num].set_xlabel(
+            f'Environment steps$\\times 10^5$ ', fontsize=15)
+        axs[plt_num].set_ylabel('Task reward', fontsize=15)
         # axs[plt_num].legend()
         yaxis = 'yaxiscut' if yaxis_cut else ''
         name_fig = TASK_PATH[0].split('/')[-1] + yaxis
