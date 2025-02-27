@@ -10,6 +10,10 @@ import pandas as pd
 
 def get_label(group_key):
     style_ = 'solid'
+    if group_key == 'rnd':  # rnd offlien buffer
+        label_ = 'rnd_buffer_agent'
+        style_ = 'dotted'
+        return label_, style_
     if group_key[0] == True:
         label_ = 'ours'
         if group_key[-2] == True:
@@ -70,12 +74,12 @@ BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
 
 # group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling, update_z_proba)
 final_hyperparams = {'hopper': [
-   
+
     [(True, 0.3, None, 100, True, 0.), ourdarkred],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
     [(False, 0.3, None, 100, False, 1.), ourblue],
     [(False, 0.3, None, 100, False, 0.), ourdarkblue],
-     [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(True, 0.3, None, 100, True, 1.), ourorange],
 ],
 
     'maze': [
@@ -129,30 +133,41 @@ final_hyperparams = {'hopper': [
 ]
 
 }
+
+
 dir_figs = '/home/nuria/phd/controllable_agent/figs/exp5'
 paths = [f'{BASE_PATH}/quadruped',
-         f'{BASE_PATH}/quadruped_zprobab', # rerunning longer
+         f'{BASE_PATH}/quadruped_zprobab',  # rerunning longer
+         f'{BASE_PATH}/offline_rnd_quadruped',
 
-         f'{BASE_PATH}/maze3', 
+         f'{BASE_PATH}/maze3',
          f'{BASE_PATH}/maze3_zprobab',
+         f'{BASE_PATH}/offline_rnd_maze',
 
          f'{BASE_PATH}/walker',
-         f'{BASE_PATH}/walker_zprobab2', 
+         f'{BASE_PATH}/walker_zprobab2',
+         f'{BASE_PATH}/offline_rnd_walker',
 
-         f'{BASE_PATH}/hopper', 
+
+         f'{BASE_PATH}/hopper',
          f'{BASE_PATH}/hopper_zprobab',
+         #  f'{BASE_PATH}/offline_rnd_hopper', #no buffer for hopper
 
-        #  f'{BASE_PATH}/fb_ball_in_cup',
+
+
+         #  f'{BASE_PATH}/fb_ball_in_cup',
          f'{BASE_PATH}/cheetah2',
          f'{BASE_PATH}/cheetah_zprobab',
+         f'{BASE_PATH}/offline_rnd_cheetah',
+
          ]
 
 TASK_PATHS = [
-    [paths[0], paths[1]],  # quadruped
-    [paths[2], paths[3]],  # maze
-    [paths[4], paths[5]], # walker
-    [paths[6], paths[7]], # hopper
-    [paths[8], paths[9]], # cheetah
+    [paths[0], paths[1], paths[2]],  # quadruped
+    [paths[3], paths[4], paths[5]],  # maze
+    [paths[6], paths[7], paths[8]],  # walker
+    [paths[9], paths[10]],  # hopper
+    [paths[11], paths[12], paths[13]],  # cheetah
 ]
 yaxis_cut = True
 
@@ -160,7 +175,6 @@ for TASK_PATH in TASK_PATHS:
     ###
 
     grouped_files = defaultdict(list)
-
 
     env = [e for e in list(domain_tasks.keys()) if e in TASK_PATH[0]][0]
     ignore_files = ['commit.txt', 'job_spec.sh']
@@ -193,14 +207,19 @@ for TASK_PATH in TASK_PATHS:
 
         update_z_proba = config.get("agent").get(
             "update_z_proba", 1.)  # Default to None if missing
+
+        rnd_buffer_agent = config.get("expl_agent", False)
+
         # Use (uncertainty, mix_ratio) as the group key
         group_key = (uncertainty, mix_ratio, add_trunk, update_z_every,
-                    sampling, update_z_proba)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
-        print(group_key)
+                     sampling, update_z_proba)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
+
+        group_key_rnd = (rnd_buffer_agent)
         num_eval_frames = config.get("eval_every_frames")
         # Store the eval.csv file path in the corresponding group
         # Dict with keys the different set of params, and values the list of files with same params
         grouped_files[group_key].append(eval_path)
+        grouped_files[group_key_rnd].append(eval_path)
 
     # Dict of dicts. Keys are task names, values are dictionary of group name and value the sequence of rewards
     grouped_data = defaultdict(dict)
@@ -211,7 +230,7 @@ for TASK_PATH in TASK_PATHS:
         for group_key, paths in grouped_files.items():
             grouped_data[key_rew][group_key] = list()
             for path in paths:
-                print(f"Group {group_key}, {key_rew}: {path}")
+                # print(f"Group {group_key}, {key_rew}: {path}")
                 df = pd.read_csv(path)
                 rewards = df[key_rew].tolist()  # Convert column to list
                 # Store data in the grouped dictionary
@@ -222,12 +241,11 @@ for TASK_PATH in TASK_PATHS:
     for group_key, paths in grouped_files.items():
         grouped_data[key_rew][group_key] = list()
         for path in paths:
-            print(f"Group {group_key}, {key_rew}: {path}")
+            # print(f"Group {group_key}, {key_rew}: {path}")
             df = pd.read_csv(path)
             rewards = df[key_rew].tolist()  # Convert column to list
             # Store data in the grouped dictionary
             grouped_data[key_rew][group_key].append(rewards)
-
 
     ##########################################
     # # Plot reward per task
@@ -237,18 +255,16 @@ for TASK_PATH in TASK_PATHS:
                                 figsize=(10, 3))  # 1 plot for each env_task
         plt_num = -1
         for env_task, groups in grouped_data.items():
-            if "episode_reward" == env_task: # dunnot plot avg when showing all tasks
+            if "episode_reward" == env_task:  # dunnot plot avg when showing all tasks
                 continue
-            print(env_task)   
             plt_num += 1
             max_ylim = 0
 
             for group_key in groups.keys():
-                print(group_key)
 
                 if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
                     color = [l[1]
-                            for l in final_hyperparams[env] if l[0] == group_key][0]
+                             for l in final_hyperparams[env] if l[0] == group_key][0]
                     # Compute mean and std of the rewards
                     rews_seeds = groups[group_key]
                     print(
@@ -261,7 +277,8 @@ for TASK_PATH in TASK_PATHS:
                     mean = np.mean(rewards, axis=0)
                     # mean = smooth_fct(mean, kernel_size=2)
                     std = np.std(rewards, axis=0)
-                    steps = np.arange(len(mean))+1  # add 1 because we start at 1!
+                    # add 1 because we start at 1!
+                    steps = np.arange(len(mean))+1
                     # Show only part of the curve
                     if env != 'maze':
                         steps = steps[0:10]
@@ -285,7 +302,7 @@ for TASK_PATH in TASK_PATHS:
                     title = (' ').join(env_task.split('_')[-2::])
                     axs[plt_num].set_title(title, fontsize=20)
                     axs[plt_num].set_xlabel(
-                    f'Environment steps$\\times 10^5$ ', fontsize=15)
+                        f'Environment steps$\\times 10^5$ ', fontsize=15)
                     axs[plt_num].set_ylabel('Task reward', fontsize=15)
                     max_ylim = max(max(mean), max_ylim)
                     if yaxis_cut:
@@ -299,7 +316,6 @@ for TASK_PATH in TASK_PATHS:
                     axs[plt_num].set_xticks(np.arange(0, len(steps)+1, 2))
                     # axs[plt_num].tick_params(top=False, right=False)
                     # axs[plt_num].grid(False) # removing grid in the background
-
 
         # axs[plt_num].legend()
         yaxis = 'yaxiscut' if yaxis_cut else ''
@@ -316,17 +332,19 @@ for TASK_PATH in TASK_PATHS:
     # Plot avg reward
     SAVE = True
     with plt.style.context(["grid"]):
-        fig, axs = plt.subplots(1, 1, figsize=(4, 3))  # 1 plot for each env_task
-        axs = np.atleast_1d(axs)  # Converts a single Axes object into a 1D array
+        # 1 plot for each env_task
+        fig, axs = plt.subplots(1, 1, figsize=(4, 3))
+        # Converts a single Axes object into a 1D array
+        axs = np.atleast_1d(axs)
 
         plt_num = 0
         max_ylim = 0
         groups = grouped_data['episode_reward']
+        print(groups.keys())
         for group_key in groups.keys():
-            print(group_key)
             if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
                 color = [l[1]
-                        for l in final_hyperparams[env] if l[0] == group_key][0]
+                         for l in final_hyperparams[env] if l[0] == group_key][0]
                 # Compute mean and std of the rewards
                 rews_seeds = groups[group_key]
                 print(
@@ -372,6 +390,31 @@ for TASK_PATH in TASK_PATHS:
                 axs[plt_num].set_xticks(np.arange(0, len(steps)+1))
                 # axs[plt_num].tick_params(top=False, right=False)
                 # axs[plt_num].grid(False) # removing grid in the background
+
+            elif group_key == 'rnd':  # rnd_buffer_agent
+                color = 'k'
+                # Compute mean and std of the rewards
+                rews_seeds = groups[group_key]
+                print(
+                    f'Number of files for group: {group_key}: {len(rews_seeds)}')
+                # In case some exps are longer than others
+                # min_len = min([len(rew) for rew in rews_seeds])
+                rews_seeds = [rew for rew in rews_seeds if len(
+                    rew) > 36]  # remove short runs
+                assert len(
+                    rews_seeds) > 7, f'Removed too many runs! {len(rews_seeds)}, {env}'
+                min_len = min([len(rew) for rew in rews_seeds])
+                rews_seeds = [rew[:min_len] for rew in rews_seeds]
+
+                rewards = np.array(rews_seeds)
+                print('Num of grads steps x 1000', len(rewards[0]))
+                mean = np.mean(rewards, axis=0)
+                if env == 'maze':
+                    breakpoint()
+                label_, linestyle_ = get_label(group_key)
+                rnd_topline = [mean[-1]] * len(steps)
+                axs[plt_num].plot(
+                    steps, rnd_topline, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
 
         # axs[plt_num].legend()
         yaxis = 'yaxiscut' if yaxis_cut else ''
