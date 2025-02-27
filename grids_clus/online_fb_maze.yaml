@@ -1,7 +1,7 @@
 # default grid for debugging
 
 name: &experiment_name online_fb_maze_gpu_curious_lowbatchsize
-results_dir: /cluster/home/nuriaa/controllable_agent/results_clus
+results_dir: /cluster/home/mvlastelica/controllable_agent/results_clus
 git_branch: main
 git_commit: null
 script_path: url_benchmark/pretrain.py
@@ -13,7 +13,7 @@ cluster_requirements:
   gpu_mem: 20 #in GB
   disk: 10G
   time: 12:00:00
-default_params: url_benchmark/pretrain_fb_maze.yaml
+default_params: url_benchmark/configs/pretrain_fb_maze.yaml
 grid:
   #fixed: 0
   #[param1, param2]: [[2.1, 3], [5, 5]]

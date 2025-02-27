@@ -1,7 +1,7 @@
 # default grid for debugging
 
 name: &experiment_name maze3
-results_dir: /cluster/home/nuriaa/controllable_agent/results_clus
+results_dir: /cluster/home/mvlastelica/controllable_agent/results_clus
 git_branch: main
 git_commit: null
 script_path: url_benchmark/pretrain.py
