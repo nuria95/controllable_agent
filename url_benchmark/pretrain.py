@@ -71,7 +71,7 @@ class Config:
     custom_reward: tp.Optional[str] = None  # activates custom eval if not None
     final_tests: int = 10
     # checkpoint # num episode * length of episode
-    snapshot_at: tp.Tuple[int, ...] = (0, 250, 500, 600, 700, 800, 900, 1000, 1500, 2000)
+    snapshot_at: tp.Tuple[int, ...] = (0, 250, 500, 1000, 1500, 2000)
     checkpoint_every: int = 100000
     load_model: tp.Optional[str] = None
     # training
