@@ -16,16 +16,16 @@ def get_label(group_key):
         return label_, style_
     if group_key[0] == True:
         label_ = 'ours'
-        if group_key[-2] == True:
+        if group_key[-3] == True:
             label_ += ' sampling'
-            if group_key[-1] == 0:
+            if group_key[-2] == 0:
                 label_ += ' no_update'
                 style_ = 'dashed'
         else:
             label_ += ' policy'
     else:
         label_ = 'baseline: uniform'
-        if group_key[-1] == 0:
+        if group_key[-2] == 0:
             label_ += ' no_update'
             style_ = 'dashed'
 
@@ -72,77 +72,79 @@ domain_tasks = {
 
 BASE_PATH = '/home/nuria/phd/controllable_agent/results_clus'
 
-# group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling, update_z_proba)
+# group_key = (uncertainty, mix_ratio, add_trunk, update_z_every, sampling, update_z_proba, expl_strategy)
 final_hyperparams = {'hopper': [
 
-    [(True, 0.3, None, 100, True, 0.), ourorange],
+    [(True, 0.3, None, 100, True, 0., None), ourorange],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
-    [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourblue],
-    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(False, 0.3, None, 100, False, 1., None), ourblue],
+    [(False, 0.3, None, 100, False, 0., None), ourblue],
+    [(True, 0.3, None, 100, True, 1., None), ourorange],
 ],
 
     'maze': [
-    [(True, 0.3, True, 100, True, 0.), ourorange],
+    [(True, 0.3, True, 100, True, 0., None), ourorange],
     #   [(True, 0.3, True, 100, False, 1.), ourgreen],
-    [(False, 0.3, True, 100, False, 1.), ourblue],
-    [(False, 0.3, True, 100, False, 0.), ourblue],
-    [(True, 0.3, True, 100, True, 1.), ourorange],
+    [(False, 0.3, True, 100, False, 1., None), ourblue],
+    [(False, 0.3, True, 100, False, 0., None), ourblue],
+    [(True, 0.3, True, 100, True, 1., None), ourorange],
 
 
 ],
 
 
     'cheetah': [
-    [(True, 0.3, None, 100, True, 0.), ourorange],
+    [(True, 0.3, None, 100, True, 0., None), ourorange],
     #  [(True, 0.3, None, 100, False, 1.), ourgreen],
-    [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourblue],
-    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(False, 0.3, None, 100, False, 1., None), ourblue],
+    [(False, 0.3, None, 100, False, 0., None), ourblue],
+    [(True, 0.3, None, 100, True, 1., None), ourorange],
 
 
 ],
 
     'quadruped': [
-    [(True, 0.3, None, 100, True, 0.), ourorange],
+    [(True, 0.3, None, 100, True, 0. ,None), ourorange],
     #    [(True, 0.3, None, 100, False, 1.), ourgreen],
-    [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourblue],
-    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(False, 0.3, None, 100, False, 1., None), ourblue],
+    [(False, 0.3, None, 100, False, 0., None), ourblue],
+    [(True, 0.3, None, 100, True, 1., None), ourorange],
 
 
 ],
 
     'walker': [
-    [(True, 0.3, None, 100, True, 0.), ourorange],
+    [(True, 0.3, None, 100, True, 0., None), ourorange],
     # [(True, 0.3, None, 100, False, 1.), ourgreen],
-    [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourblue],
-    [(True, 0.3, None, 100, True, 1.), ourorange],
+    [(False, 0.3, None, 100, False, 1., None), ourblue],
+    [(False, 0.3, None, 100, False, 0., None), ourblue],
+    [(True, 0.3, None, 100, True, 1., None), ourorange],
 
 
 ],
 
-    'ball_in_cup': [
-    [(True, 0.3, None, 100, True, 1.), ourorange],
-    [(True, 0.3, None, 100, True, 0.), ourdarkred],
-    #  [(True, 0.3, None, 100, False, 1.), ourgreen],
-    [(False, 0.3, None, 100, False, 1.), ourblue],
-    [(False, 0.3, None, 100, False, 0.), ourblue]
-
-]
+#     'ball_in_cup': [
+#     [(True, 0.3, None, 100, True, 1.), ourorange],
+#     [(True, 0.3, None, 100, True, 0.), ourdarkred],
+#     #  [(True, 0.3, None, 100, False, 1.), ourgreen],
+#     [(False, 0.3, None, 100, False, 1.), ourblue],
+#     [(False, 0.3, None, 100, False, 0.), ourblue]
+# ]
 
 }
 
+# group_key = (expl_strategy, mix_ratio)
+final_hyperparams_random = [('act_rand', 0.3), ourdarkgreen]
 
-dir_figs = '/home/nuria/phd/controllable_agent/figs/exp5'
+dir_figs = '/home/nuria/phd/controllable_agent/figs/exp6'
 paths = [f'{BASE_PATH}/quadruped',
-         f'{BASE_PATH}/quadruped_zprobab',  # rerunning longer
+        #  f'{BASE_PATH}/quadruped_zprobab',  # rerunning longer
+         f'{BASE_PATH}/quadruped_zprobab2',
          f'{BASE_PATH}/offline_rnd_quadruped',
 
          f'{BASE_PATH}/maze3',
          f'{BASE_PATH}/maze3_zprobab',
-         f'{BASE_PATH}/offline_rnd_maze',
+         f'{BASE_PATH}/offline_rnd_maze2',
 
          f'{BASE_PATH}/walker',
          f'{BASE_PATH}/walker_zprobab2',
@@ -159,15 +161,23 @@ paths = [f'{BASE_PATH}/quadruped',
          f'{BASE_PATH}/cheetah2',
          f'{BASE_PATH}/cheetah_zprobab',
          f'{BASE_PATH}/offline_rnd_cheetah',
+         
+         f'{BASE_PATH}/quadruped_a_exploration',
+         f'{BASE_PATH}/maze_a_exploration',
+         f'{BASE_PATH}/walker_a_exploration',
+         f'{BASE_PATH}/hopper_a_exploration',
+         f'{BASE_PATH}/cheetah_a_exploration',
+         f'{BASE_PATH}/humanoid_a_exploration',
+
 
          ]
 
 TASK_PATHS = [
-    [paths[0], paths[1], paths[2]],  # quadruped
-    [paths[3], paths[4], paths[5]],  # maze
-    [paths[6], paths[7], paths[8]],  # walker
-    [paths[9], paths[10]],  # hopper
-    [paths[11], paths[12], paths[13]],  # cheetah
+    [paths[0], paths[1], paths[2], paths[14]],  # quadruped
+    [paths[3], paths[4], paths[5], paths[15]],  # maze
+    [paths[6], paths[7], paths[8], paths[16]],  # walker
+    [paths[9], paths[10], paths[17], ],  # hopper
+    [paths[11], paths[12], paths[13] ],  # cheetah
 ]
 yaxis_cut = False
 
@@ -177,6 +187,7 @@ for TASK_PATH in TASK_PATHS:
     grouped_files = defaultdict(list)
 
     env = [e for e in list(domain_tasks.keys()) if e in TASK_PATH[0]][0]
+    print(f'*****\n\n\nEnv {env}******\n\n')
     ignore_files = ['commit.txt', 'job_spec.sh']
     files = [os.path.join(t, file) for t in TASK_PATH for file in os.listdir(
         t) if file not in ignore_files]
@@ -209,17 +220,22 @@ for TASK_PATH in TASK_PATHS:
             "update_z_proba", 1.)  # Default to None if missing
 
         rnd_buffer_agent = config.get("expl_agent", False)
+        
+        expl_strategy = config.get("agent").get("expl_strategy", None)
 
         # Use (uncertainty, mix_ratio) as the group key
         group_key = (uncertainty, mix_ratio, add_trunk, update_z_every,
-                     sampling, update_z_proba)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
+                     sampling, update_z_proba, expl_strategy)  # if env != 'maze' else (uncertainty, mix_ratio, add_trunk)
 
         group_key_rnd = (rnd_buffer_agent)
+        
+        group_key_random = (expl_strategy, mix_ratio)
         num_eval_frames = config.get("eval_every_frames")
         # Store the eval.csv file path in the corresponding group
         # Dict with keys the different set of params, and values the list of files with same params
         grouped_files[group_key].append(eval_path)
         grouped_files[group_key_rnd].append(eval_path)
+        grouped_files[group_key_random].append(eval_path)
 
     # Dict of dicts. Keys are task names, values are dictionary of group name and value the sequence of rewards
     grouped_data = defaultdict(dict)
@@ -232,7 +248,11 @@ for TASK_PATH in TASK_PATHS:
             for path in paths:
                 # print(f"Group {group_key}, {key_rew}: {path}")
                 df = pd.read_csv(path)
-                rewards = df[key_rew].tolist()  # Convert column to list
+                try:
+                    rewards = df[key_rew].tolist()  # Convert column to list
+                except:
+                    print(f'Omitting {key_rew} for {path}')
+                    pass
                 # Store data in the grouped dictionary
                 grouped_data[key_rew][group_key].append(rewards)
 
@@ -243,7 +263,11 @@ for TASK_PATH in TASK_PATHS:
         for path in paths:
             # print(f"Group {group_key}, {key_rew}: {path}")
             df = pd.read_csv(path)
-            rewards = df[key_rew].tolist()  # Convert column to list
+            try:
+                rewards = df[key_rew].tolist()  # Convert column to list
+            except:
+                print(f'Omitting {key_rew} for {path}')
+                pass
             # Store data in the grouped dictionary
             grouped_data[key_rew][group_key].append(rewards)
 
@@ -262,16 +286,23 @@ for TASK_PATH in TASK_PATHS:
 
             for group_key in groups.keys():
 
-                if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
-                    color = [l[1]
-                             for l in final_hyperparams[env] if l[0] == group_key][0]
+                if group_key in list(map(lambda x: x[0], final_hyperparams[env])) or group_key in final_hyperparams_random:
+                    if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
+                        color = [l[1]
+                                for l in final_hyperparams[env] if l[0] == group_key][0]
+                    else:
+                        color = final_hyperparams_random[1]
                     # Compute mean and std of the rewards
                     rews_seeds = groups[group_key]
                     print(
                         f'Number of files for group: {group_key}: {len(rews_seeds)}')
                     # In case some exps are longer than others\
-                    min_len = min([len(rew) for rew in rews_seeds])
-                    rews_seeds = [rew[:min_len] for rew in rews_seeds]
+                    # min_len = min([len(rew) for rew in rews_seeds])
+                    # rews_seeds = [rew[:min_len] for rew in rews_seeds]
+                    rews_seeds = [rew for rew in rews_seeds if len(rew) > 9]
+                    if len(rews_seeds) < 7:
+                        print(f'Removed too many ALL TASKS runs! {len(rews_seeds)}, {env}')
+                        
 
                     rewards = np.array(rews_seeds)
                     mean = np.mean(rewards, axis=0)
@@ -310,10 +341,14 @@ for TASK_PATH in TASK_PATHS:
                         f'Number of files for group: {group_key}: {len(rews_seeds)}')
                     # In case some exps are longer than others
                     # min_len = min([len(rew) for rew in rews_seeds])
+                    
                     rews_seeds = [rew for rew in rews_seeds if len(
-                        rew) > 36]  # remove short runs
-                    assert len(
-                        rews_seeds) > 7, f'Removed too many runs! {len(rews_seeds)}, {env}'
+                        rew) > 36] if env!='maze' else [rew for rew in rews_seeds if len(
+                        rew) > 8] # remove short runs. For offline_maze2 we evaluated every 100k, for offline_maze every 10k
+                    if len(
+                        rews_seeds) < 7:
+                        print(f'Removed too many RND runs! {len(rews_seeds)}, {env}')
+                        continue
                     min_len = min([len(rew) for rew in rews_seeds])
                     rews_seeds = [rew[:min_len] for rew in rews_seeds]
 
@@ -368,18 +403,23 @@ for TASK_PATH in TASK_PATHS:
         plt_num = 0
         max_ylim = 0
         groups = grouped_data['episode_reward']
-        print(groups.keys())
         for group_key in groups.keys():
-            if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
-                color = [l[1]
-                         for l in final_hyperparams[env] if l[0] == group_key][0]
+            if group_key in list(map(lambda x: x[0], final_hyperparams[env])) or group_key in final_hyperparams_random:
+                if group_key in list(map(lambda x: x[0], final_hyperparams[env])):
+                    color = [l[1]
+                            for l in final_hyperparams[env] if l[0] == group_key][0]
+                else:
+                    color = final_hyperparams_random[1]
                 # Compute mean and std of the rewards
                 rews_seeds = groups[group_key]
                 print(
                     f'Number of files for group: {group_key}: {len(rews_seeds)}')
                 # In case some exps are longer than others
-                min_len = min([len(rew) for rew in rews_seeds])
-                rews_seeds = [rew[:min_len] for rew in rews_seeds]
+                # min_len = min([len(rew) for rew in rews_seeds])
+                rews_seeds = [rew for rew in rews_seeds if len(rew) > 9]
+                assert len(
+                    rews_seeds) > 7, f'Removed too many AVG runs! {len(rews_seeds)}, {env}'
+                # rews_seeds = [rew[:min_len] for rew in rews_seeds]
 
                 rewards = np.array(rews_seeds)
                 mean = np.mean(rewards, axis=0)
@@ -414,9 +454,11 @@ for TASK_PATH in TASK_PATHS:
                 # In case some exps are longer than others
                 # min_len = min([len(rew) for rew in rews_seeds])
                 rews_seeds = [rew for rew in rews_seeds if len(
-                    rew) > 36]  # remove short runs
-                assert len(
-                    rews_seeds) > 7, f'Removed too many runs! {len(rews_seeds)}, {env}'
+                    rew) > 36]  if env!='maze' else [rew for rew in rews_seeds if len(
+                    rew) > 8] # remove short runs. For offline_maze2 we evaluated every 100k, for offline_maze every 10k
+                if len(
+                    rews_seeds) < 7:
+                    print(f'Removed too many RND AVG runs! {len(rews_seeds)}, {env}')
                 min_len = min([len(rew) for rew in rews_seeds])
                 rews_seeds = [rew[:min_len] for rew in rews_seeds]
 
