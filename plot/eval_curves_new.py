@@ -177,9 +177,9 @@ TASK_PATHS = [
     [paths[3], paths[4], paths[5], paths[15]],  # maze
     [paths[6], paths[7], paths[8], paths[16]],  # walker
     [paths[9], paths[10], paths[17], ],  # hopper
-    [paths[11], paths[12], paths[13] ],  # cheetah
+    [paths[11], paths[12], paths[13], paths[18] ],  # cheetah
 ]
-yaxis_cut = False
+yaxis_cut = True
 
 for TASK_PATH in TASK_PATHS:
     ###
@@ -357,6 +357,7 @@ for TASK_PATH in TASK_PATHS:
                     mean = np.mean(rewards, axis=0)
                     max_ylim = max(max(mean), max_ylim)
                     label_, linestyle_ = get_label(group_key)
+                    steps = np.arange(0,11)
                     rnd_topline = [mean[-1]] * len(steps)
                     axs[plt_num].plot(
                         steps, rnd_topline, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
@@ -372,13 +373,13 @@ for TASK_PATH in TASK_PATHS:
                 axs[plt_num].set_ylim([0, max_ylim + 50])
             else:
                 axs[plt_num].set_ylim([0, 1000])
-            # axs[plt_num].set_xlim([0, 10])
+            axs[plt_num].set_xlim([0, 10])
             axs[plt_num].tick_params(axis='x', labelsize=12)
             axs[plt_num].tick_params(axis='y', labelsize=12)
             # Bold and bigger x-axis ticks
             axs[plt_num].set_xticks(np.arange(0, len(steps)+1, 2))
             # axs[plt_num].tick_params(top=False, right=False)
-            # axs[plt_num].grid(False) # removing grid in the background
+            axs[plt_num].grid(True, linestyle='-', color='grey')  # Continuous lines, grey color
 
         # axs[plt_num].legend()
         yaxis = 'yaxiscut' if yaxis_cut else ''
@@ -467,6 +468,7 @@ for TASK_PATH in TASK_PATHS:
                 mean = np.mean(rewards, axis=0)
                 max_ylim = max(max(mean), max_ylim)
                 label_, linestyle_ = get_label(group_key)
+                steps = np.arange(0,11)
                 rnd_topline = [mean[-1]] * len(steps)
                 axs[plt_num].plot(
                     steps, rnd_topline, label=f"{label_}", color=color, linewidth=2.0, linestyle=linestyle_)
@@ -476,13 +478,13 @@ for TASK_PATH in TASK_PATHS:
             axs[plt_num].set_ylim([0, max_ylim + 50])
         else:
             axs[plt_num].set_ylim([0, 1000])
-        # axs[plt_num].set_xlim([0, 10])
+        axs[plt_num].set_xlim([0, 10])
         axs[plt_num].tick_params(axis='x', labelsize=12)
         axs[plt_num].tick_params(axis='y', labelsize=12)
         # Bold and bigger x-axis ticks
-        axs[plt_num].set_xticks(np.arange(0, len(steps)+1))
+        axs[plt_num].set_xticks(np.arange(0, len(steps)+1,2))
         # axs[plt_num].tick_params(top=False, right=False)
-        # axs[plt_num].grid(False) # removing grid in the background
+        axs[plt_num].grid(True, linestyle='-', color='grey')  # Continuous lines, grey color
         axs[plt_num].set_title(title, fontsize=20)
         axs[plt_num].set_xlabel(
             f'Environment steps$\\times 10^5$ ', fontsize=15)
