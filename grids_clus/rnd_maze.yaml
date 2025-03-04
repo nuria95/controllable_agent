@@ -1,6 +1,6 @@
 # default grid for debugging
 
-name: &experiment_name offline_rnd_maze
+name: &experiment_name offline_rnd_maze2
 results_dir: /cluster/home/nuriaa/controllable_agent/results_clus
 git_branch: main
 git_commit: null
@@ -18,4 +18,5 @@ grid:
   #fixed: 0
   #[param1, param2]: [[2.1, 3], [5, 5]]
   experiment: *experiment_name
+  eval_every_steps: 100000
   seed: [0,1,2, 3, 4, 5, 6,7,8,9]                             
