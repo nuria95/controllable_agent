@@ -23,7 +23,7 @@ def get_label(group_key):
                 style_ = 'dashed'
         else:
             label_ += ' policy'
-            style_ = 'dashed'
+            style_ = 'solid'
     else:
         label_ = 'baseline: uniform'
         if group_key[-2] == 0:

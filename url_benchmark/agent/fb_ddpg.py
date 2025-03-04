@@ -413,6 +413,35 @@ class FBDDPGAgent:
         metrics.update({f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1.mean(dim=0))} if self.Q1.dim() > 1 else {f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1)})   
         return metrics
 
+
+    def compute_disagreement_metrics_new(self) -> float:
+        with torch.no_grad():
+            bs = len(self.eval_states)
+            num_zs = len(self.eval_zs)
+            self.eval_states = self.eval_states.repeat(len(self.eval_zs), 1) #( eval_states x eval_zs) x s_dim
+            self.eval_zs = torch.repeat_interleave(self.eval_zs, bs, 0) #( eval_states x eval_zs) x z_dim
+            h = self.encoder(self.eval_states)
+            acts = self.actor(h, self.eval_zs, std=0.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
+            F1, F2 = self.forward_net((self.eval_states, self.eval_zs, acts))  # ensemble_size x (num_zs x eval_states) x z_dim
+            eF1, eF2 = [], []        
+            for i in range(len(self.eval_zs)):
+                F11 = F1[:,i,:].squeeze().to(torch.float64)
+                F11 = F11.transpose(1,0) # d x ensemble_size
+                cov_F1 = torch.cov(F11)
+                epistemic_F1 = torch.linalg.det(cov_F1)
+                # eigenvals = torch.linalg.eigvals(cov_F1)
+                # print(len(eigenvals), eigenvals)
+                # epistemic_F1 = torch.trace(cov_F1)
+                eF1.append(epistemic_F1)
+                
+            self.Q1, _= [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x (num_zs x eval_states)
+            
+            epistemic_q1 = self.Q1.std(dim=0)
+            ef = torch.tensor(eF1).reshape(-1, bs).mean(-1)
+            eq = epistemic_q1.reshape(-1, bs).mean(-1)
+
+        return ef, eq
+
     def update_fb(
         self,
         obs: torch.Tensor,
