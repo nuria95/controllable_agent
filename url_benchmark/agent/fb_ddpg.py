@@ -91,6 +91,7 @@ class FBDDPGAgentConfig:
     rnd_embed_dim: int = 100
     meta_strategy: str = 'meta'
     expl_strategy: str = 'act_rand'
+    ucb_alpha: float = 0.0 # alpha for UCB in policy improvement step
 
 
 cs = ConfigStore.instance()
@@ -371,31 +372,6 @@ class FBDDPGAgent:
         meta['updated'] = True
 
         return meta
-
-
-        #     batch_size = 0
-        #     obs = batch.obs
-        #     while batch_size < num_steps:
-        #         batch = replay_loader.sample(self.cfg.batch_size)
-        #         batch = batch.to(self.cfg.device)
-        #         # Compute reward:
-        #         with torch.no_grad():
-        #             num_zs = self.cfg.num_z_samples
-        #             z = self.sample_z(size=num_zs, device=self.cfg.device)  # num_zs x z_dim
-        #             for obs in batch.obs:
-        #                 obs = obs.expand(num_zs, -1)
-        #                 acts = self.actor(obs, z, std=1.).mean  # num_zs x act_dim take the mean
-        #                 F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
-        #                 Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
-        #                 epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
-        #                 reward_list.append(epistemic_std1.mean()) #TODO MEAN? std1 only?
-        #         obs_list.append(batch.goal if self.cfg.goal_space is not None else batch.next_obs)
-        #         batch_size += batch.obs.size(0)
-        #     obs, reward = torch.cat(obs_list, 0), torch.stack(reward_list).unsqueeze(dim=1)  # type: ignore
-        #     obs_t, reward_t = obs[:num_steps], reward[:num_steps]
-        #     meta = self.infer_meta_from_obs_and_rewards(obs_t, reward_t)
-        # meta['updated'] = True
-        # return meta
 
     def init_curious_meta(self, obs: np.ndarray, replay_buffer=None) -> MetaDict:
         meta = OrderedDict()
@@ -705,15 +681,28 @@ class FBDDPGAgent:
         
         if self.cfg.uncertainty:
             # TODO: Average over ensembles?
-            Q1 = torch.einsum('esd, ...sd -> es', F1, z).mean(0)  # the broadcasting ... (for the ensemble dim) is not needed. remove?
-            Q2 = torch.einsum('esd, ...sd -> es', F2, z).mean(0)
+            Q1s = torch.einsum('esd, ...sd -> es', F1, z)
+            Q2s = torch.einsum('esd, ...sd -> es', F2, z)
+            Q1 = Q1s.mean(0)  # the broadcasting ... (for the ensemble dim) is not needed. remove?
+            Q2 = Q2s.mean(0)
+            Q1_std = Q1s.std(0).mean(0)
+            Q2_std = Q2s.std(0).mean(0)
         else:
             Q1 = torch.einsum('sd, sd -> s', F1, z)
             Q2 = torch.einsum('sd, sd -> s', F2, z)
         if self.cfg.additional_metric:
             q1_success = Q1 > Q2
-        Q = torch.min(Q1, Q2)
-        actor_loss = (self.cfg.temp * log_prob - Q).mean() if self.cfg.boltzmann else -Q.mean()
+        
+        if self.cfg.uncertainty:
+            Q = torch.min(Q1, Q2)
+            Q_std = torch.min(Q1_std, Q2_std) # pessimistic
+            Q_ucb = Q + self.cfg.ucb_alpha * Q_std
+            actor_loss = (self.cfg.temp * log_prob - Q_ucb).mean() if self.cfg.boltzmann else -Q_ucb.mean()
+        else:
+            Q = torch.min(Q1, Q2)
+            actor_loss = (self.cfg.temp * log_prob - Q).mean() if self.cfg.boltzmann else -Q.mean()
+
+
         if self.cfg.rnd:
             rnd_loss = -self.Q_rnd(obs, action, z).mean()
             actor_loss += self.cfg.rnd_coeff * rnd_loss
