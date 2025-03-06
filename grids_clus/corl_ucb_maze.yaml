@@ -1,6 +1,6 @@
 # default grid for debugging
 
-name: &experiment_name maze_a_exploration
+name: &experiment_name maze_ucb_exploration
 results_dir: /cluster/home/mvlastelica/controllable_agent/results_clus
 git_branch: marin
 git_commit: null
@@ -22,6 +22,7 @@ grid:
   [uncertainty, agent.sampling]: [[True, False]]
   agent.expl_strategy: [act_greedy_cum_var_z_learn, act_z_sample]
   agent.meta_strategy: [meta, curious_meta] # just random z
+  agent.ucb_alpha: [0.01, 0.1, 1.0, 10.0]
   agent.myopic: False
   agent.batch_size: [256]
   agent.mix_ratio: [0.3,0.5]
