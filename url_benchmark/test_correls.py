@@ -3,21 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from url_benchmark.d4rl_benchmark import D4RLReplayBufferBuilder, D4RLWrapper
-from url_benchmark import agent as agents
-from url_benchmark.video import TrainVideoRecorder, VideoRecorder
-from url_benchmark.in_memory_replay_buffer import ReplayBuffer
-from url_benchmark.logger import Logger
-from url_benchmark import goals as _goals
-from url_benchmark import utils
-from dm_env import specs
-from url_benchmark import dmc
-import omegaconf as omgcf
-import wandb
-import torch
-import numpy as np
-from hydra.core.config_store import ConfigStore
-import hydra
 import os
 import json
 import pdb  # pylint: disable=unused-import
@@ -35,13 +20,28 @@ os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 # if the default egl does not work, you may want to try:
 # export MUJOCO_GL=glfw
 os.environ['MUJOCO_GL'] = os.environ.get('MUJOCO_GL', 'egl')
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import hydra
+from hydra.core.config_store import ConfigStore
+import numpy as np
+import torch
+import wandb
+import omegaconf as omgcf
 # from dm_env import specs
 
+from url_benchmark import dmc
+from dm_env import specs
+from url_benchmark import utils
+from url_benchmark import goals as _goals
+from url_benchmark.logger import Logger
+from url_benchmark.in_memory_replay_buffer import ReplayBuffer
+from url_benchmark.video import TrainVideoRecorder, VideoRecorder
+from url_benchmark import agent as agents
+from url_benchmark.d4rl_benchmark import D4RLReplayBufferBuilder, D4RLWrapper
 
 logger = logging.getLogger(__name__)
+torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.benchmark = True
 # os.environ['WANDB_MODE']='offline'
 
@@ -101,7 +101,7 @@ class Config:
     eval_every_frames: int = 10000
     load_replay_buffer: tp.Optional[str] = None
     save_train_video: bool = False
-    name_exp: str = 'exp1'
+    name_exp: str = 'tr_mean_varq'
 
 
 #  Name the Config as "workspace_config".
@@ -204,14 +204,16 @@ class BaseWorkspace(tp.Generic[C]):
             # Compute fix states and zs for evaluating disagreement through time
             # self.agent.eval_states = _goals.MazeMultiGoal().get_eval_states(num_states=100).to(self.device)
             goals = _goals.MazeMultiGoal().goals
-
             self.agent.eval_states = torch.tensor(np.concatenate(
                 (goals, np.zeros((len(goals), 2))), axis=1), dtype=torch.float).to(self.device)
 
             # self.agent.eval_states = _goals.MazeMultiGoal().get_eval_midroom_states().to(self.device)
             self.agent.eval_zs = self.agent.sample_z(500, device=self.device)
         else:
-            self.agent.eval_states = None
+            walker_states = np.load("/home/nuria/phd/controllable_agent/walker_walker_walk_statesevery20.npz")['states']
+            self.agent.eval_states = torch.tensor(walker_states, device = self.device)
+            self.agent.eval_zs = self.agent.sample_z(500, device=self.device)
+
 
         self.domain_tasks = {
             "cheetah": ['walk', 'walk_backward', 'run', 'run_backward', 'flip', 'flip_backward'],
@@ -326,6 +328,8 @@ class Workspace(BaseWorkspace[Config]):
 
         # np.savetxt(f"/home/nuria/phd/controllable_agent/figs/correl/ef_{self.cfg.name_exp}.csv", ef.numpy(), delimiter=",")
         # np.savetxt(f"/home/nuria/phd/controllable_agent/figs/correl/eq_{self.cfg.name_exp}.csv", eq.cpu().numpy(), delimiter=",")
+        np.savetxt(f"/home/nuria/phd/controllable_agent/figs/correl/walker/ef_{self.cfg.name_exp}.csv", ef.numpy(), delimiter=",")
+        np.savetxt(f"/home/nuria/phd/controllable_agent/figs/correl/walker/eq_{self.cfg.name_exp}.csv", eq.cpu().numpy(), delimiter=",")
         print('saved')
         # breakpoint()
         # import matplotlib.pyplot as plt
