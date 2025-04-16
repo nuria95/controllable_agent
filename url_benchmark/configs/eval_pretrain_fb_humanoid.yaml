@@ -1,25 +1,37 @@
 defaults:
-  - workspace_config # this is to load the config in pretrain.py
+  - workspace_config
   - agent: fb_ddpg
   - override hydra/launcher: submitit_slurm
   - _self_
 
 
-task: cheetah_walk_backward
-custom_reward: cheetah_walk_backward
+task: humanoid_run
+goal_space: simplified_humanoid
+custom_reward: humanoid_run
+append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: false
 warmup: false
 seed: 0
-experiment: test_cheetah
+experiment: test_humanoid
 discount: 0.98
+num_train_frames: 2000010
+replay_buffer_episodes: 2000
+eval: true
+load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/fb_humanoid/15/models/snapshot_data1200.pt
+
 agent:
   batch_size: 256
   z_dim: 50
+  num_inference_steps: 10000
+  mix_ratio: 0.5
+  lr: 1.e-4
+  lr_coef: 1.
+  sampling: True
+  update_z_every_step: 100
+
 num_eval_episodes: 10
-eval: true
-load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_cheetah_alltasks/4/models/latest.pt
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}

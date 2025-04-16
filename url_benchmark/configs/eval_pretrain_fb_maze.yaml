@@ -8,6 +8,7 @@ defaults:
 task: point_mass_maze_reach_bottom_right
 custom_reward: maze_multi_goal
 goal_space: simplified_point_mass_maze
+append_goal_to_observation: false
 uncertainty: True
 eval_every_frames: 100000
 use_wandb: false
@@ -17,9 +18,12 @@ experiment: online_track_disagr
 agent:
   batch_size: 256
   z_dim: 100
+  add_trunk: true # I think! check G2 appendix paper
+  sampling: true
 num_eval_episodes: 10
-load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_maze_trackdisagr2/4/models/latest.pt
+load_model: /home/nuria/phd/controllable_agent/fbee_cluster/maze3/18/models/latest.pt
 eval: true
+save_video: true
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
