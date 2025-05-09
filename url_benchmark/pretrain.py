@@ -649,7 +649,8 @@ class Workspace(BaseWorkspace[Config]):
     def eval_model(self) -> None:
         if self.cfg.custom_reward == "maze_multi_goal":
             self.eval_maze_goals()
-        self.eval(task=self.cfg.task)
+        # self.eval(task=self.cfg.task)
+        self.eval()
         if 'maze' not in self.cfg.task:
             return
         self.agent.compute_disagreement_metrics()

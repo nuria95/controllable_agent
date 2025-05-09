@@ -236,6 +236,11 @@ for TASK_PATH in TASK_PATHS:
         grouped_files[group_key].append(eval_path)
         grouped_files[group_key_rnd].append(eval_path)
         grouped_files[group_key_random].append(eval_path)
+    
+    # To find names of files:
+    # gouped_files['desired_key'] returns names of files, ex:
+    # grouped_files[(True, 0.3, None, 100, True, 1., None)]
+    # breakpoint()
 
     # Dict of dicts. Keys are task names, values are dictionary of group name and value the sequence of rewards
     grouped_data = defaultdict(dict)

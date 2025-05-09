@@ -7,6 +7,8 @@ defaults:
 
 task: cheetah_walk_backward
 custom_reward: cheetah_walk_backward
+goal_space: simplified_cheetah_flip
+append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: false
@@ -17,12 +19,26 @@ discount: 0.98
 agent:
   batch_size: 256
   z_dim: 50
+  myopic: true
+  sampling: true
 num_eval_episodes: 10
 eval: true
-load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_cheetah_alltasks/4/models/latest.pt
+save_video: true
+
+# load_model: /home/nuria/phd/controllable_agent/fbee_cluster/online_fb_cheetah_alltasks/4/models/latest.pt
+load_model: /home/nuria/phd/controllable_agent/fbee_cluster/cheetah2/14/models/latest.pt
+
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
   sweep:
     dir: ./exp_paper/${now:%Y.%m.%d}_${task}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
     subdir: ${hydra.job.num}
+
+
+
+# our models:
+# ['/home/nuria/phd/controllable_agent/results_clus/cheetah2/16/eval.csv', 
+# '/home/nuria/phd/controllable_agent/results_clus/cheetah2/14/eval.csv',
+# '/home/nuria/phd/controllable_agent/results_clus/cheetah2/18/eval.csv',
+# '/home/nuria/phd/controllable_agent/results_clus/cheetah2/11/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/12/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/13/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/17/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/15/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/10/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/19/eval.csv']
