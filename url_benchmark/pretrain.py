@@ -602,7 +602,7 @@ class Workspace(BaseWorkspace[Config]):
                 meta_disagr = []
                 # save checkpoint to reload
                 if self.global_episode in self.cfg.snapshot_at:
-                    self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_data{self.global_episode}.pt'))
+                    self.save_checkpoint(self._checkpoint_filepath, exclude=["replay_loader"])
                     # self.save_checkpoint(self._checkpoint_filepath)
             
             # Very ugly way of keeping the xaxis of evals updated when not collecting more data (and hence not colling log above). TODO pass step to log !
@@ -643,7 +643,7 @@ class Workspace(BaseWorkspace[Config]):
             # if self.replay_loader._full:
             #     if not self.global_frame % self.cfg.checkpoint_every:
             #         self.save_checkpoint(self._checkpoint_filepath.with_name(f'snapshot_ep{self.global_episode}_frame{self.global_frame}.pt'))
-        self.save_checkpoint(self._checkpoint_filepath)  # make sure we save the final checkpoint
+        self.save_checkpoint(self._checkpoint_filepath, exclude=["replay_loader"])  # make sure we save the final checkpoint
         # self.finalize()
 
     def eval_model(self) -> None:
