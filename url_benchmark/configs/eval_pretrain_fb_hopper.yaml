@@ -5,25 +5,29 @@ defaults:
   - _self_
 
 
-task: walker_walk
-goal_space: simplified_walker
-custom_reward: walker_walk
+task: hopper_hop
+goal_space: simplified_hopper
+custom_reward: hopper_hop
 append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: false
 warmup: false
-seed: 0
-experiment: test_walker
+seed: 10
+experiment: test_hopper
 discount: 0.98
+num_train_frames: 2000010
+replay_buffer_episodes: 1000
+
 agent:
   batch_size: 256
   z_dim: 50
+  num_inference_steps: 10000
   myopic: true
   sampling: true
 num_eval_episodes: 1
 eval: true
-load_model: /home/nuria/phd/controllable_agent/fbee_cluster/hopper/17/models/latest.pt
+load_model: /home/nuria/phd/controllable_agent/fbee_cluster/hopper/15/models/latest.pt
 save_video: true
 hydra:
   run:
