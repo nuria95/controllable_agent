@@ -59,9 +59,8 @@ The agent is evaluated on a set of tasks:
 |hopper| `hop`, `stand`, `hop_backward`, `flip`, `flip_backward`
 
 
-## Minor handcoded adaptation (to be solved)
-Currently, to be able to train the cheetah agent one needs to add an additional function in the source code from dm-control.
-For reproducibility, please add the following function in the *class Physics* (line 52) defined in `{path_to_env}/fbee_env/lib/python3.9/site-packages/dm_control/suite/cheetah.py`:
+## Temporary manual modification required
+At present, training of the Cheetah agent requires a minor manual modification to the dm-control source code. Specifically, users must insert an additional method into the `Physics` class defined in the following file `{path_to_env}/fbee_env/lib/python3.9/site-packages/dm_control/suite/cheetah.py` at line ~52:
 
 ```
 def angmomentum(self):
