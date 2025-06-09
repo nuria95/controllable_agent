@@ -15,6 +15,9 @@ import wandb
 from termcolor import colored
 from torch.utils.tensorboard import SummaryWriter
 
+""" 
+Code adapted from  https://github.com/facebookresearch/controllable_agent
+"""
 
 Formating = tp.List[tp.Tuple[str, str, str]]
 COMMON_TRAIN_FORMAT = [('frame', 'F', 'int'), ('step', 'S', 'int'),

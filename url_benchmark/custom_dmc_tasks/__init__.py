@@ -8,9 +8,11 @@ from . import cheetah
 from . import walker
 from . import hopper
 from . import quadruped
-from . import jaco
 from . import point_mass_maze
 
+""" 
+Code from  https://github.com/facebookresearch/controllable_agent
+"""
 
 def make(domain, task,
          task_kwargs=None,
@@ -47,7 +49,3 @@ def make(domain, task,
         raise ValueError(f'{task} not found')
 
     assert None
-
-
-def make_jaco(task, obs_type, seed) -> tp.Any:
-    return jaco.make(task, obs_type, seed)

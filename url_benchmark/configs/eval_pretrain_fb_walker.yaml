@@ -7,12 +7,10 @@ defaults:
 
 task: walker_walk
 goal_space: simplified_walker
-custom_reward: walker_walk
 append_goal_to_observation: True
 uncertainty: True
-eval_every_frames: 10000
+eval_every_frames: 100000
 use_wandb: false
-warmup: false
 seed: 0
 experiment: test_walker
 discount: 0.98
@@ -21,7 +19,7 @@ agent:
   z_dim: 50
   myopic: true
   sampling: true
-num_eval_episodes: 1
+num_eval_episodes: 30
 eval: true
 load_model: /home/nuria/phd/controllable_agent/fbee_cluster/hopper/17/models/latest.pt
 save_video: true

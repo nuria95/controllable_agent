@@ -6,17 +6,15 @@ defaults:
 
 
 task: quadruped_walk
-goal_space: simplified_quadruped
-custom_reward: quadruped_walk
+goal_space: simplified_quadruped_vel
 append_goal_to_observation: True
 uncertainty: True
-eval_every_frames: 10000
+eval_every_frames: 100000
 use_wandb: true
-warmup: false
 seed: 0
 experiment: test_quadruped
 discount: 0.98
-num_train_frames: 2000010
+num_train_frames: 1000010
 replay_buffer_episodes: 1000
 save_video: False
 
@@ -30,16 +28,13 @@ agent:
   update_z_proba: 1.
   myopic: True
   num_z_samples: 100
-  num_obs_samples: 1000
   rnd_coeff: 0.5
   rnd: False
   rnd_embed_dim: 100
   f_uncertainty: false
 
-num_eval_episodes: 10
+num_eval_episodes: 30
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
-  sweep:
-    dir: ./exp_paper/${now:%Y.%m.%d}_${task}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
-    subdir: ${hydra.job.num}
+

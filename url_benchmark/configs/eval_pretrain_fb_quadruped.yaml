@@ -7,12 +7,10 @@ defaults:
 
 task: quadruped_stand
 goal_space: simplified_quadruped_vel
-custom_reward: quadruped_stand
 append_goal_to_observation: True
 uncertainty: True
 eval_every_frames: 10000
 use_wandb: false
-warmup: false
 seed: 0
 experiment: eval_quadruped_stand
 discount: 0.98
@@ -20,29 +18,10 @@ agent:
   batch_size: 256
   z_dim: 50
   sampling: True
-num_eval_episodes: 10
+num_eval_episodes: 30
 eval: true
 save_video: true
-# load_model: /home/nuria/cluster/project/hilliges/nuriaa/results_clus/online_fb_quadruped_modgoal_velx_rew/1/models/latest.pt
 load_model: /home/nuria/phd/controllable_agent/fbee_cluster/quadruped/6/models/latest.pt
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
-  sweep:
-    dir: ./exp_paper/${now:%Y.%m.%d}_${task}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
-    subdir: ${hydra.job.num}
-  # launcher:
-  #   timeout_min: 4300
-  #   cpus_per_task: 10
-  #   gpus_per_node: 1
-  #   tasks_per_node: 1
-  #   mem_gb: 400
-  #   nodes: 1
-  #   submitit_folder: ./exp_paper/${now:%Y.%m.%d}_${task}/${now:%H%M%S}_${agent.name}_${task}_${experiment}/.slurm
-  #   partition: learnlab # devlab learnlab
-
-
-# our models:
-# ['/home/nuria/phd/controllable_agent/results_clus/quadruped/6/eval.csv', 
-# '/home/nuria/phd/controllable_agent/results_clus/quadruped/1/eval.csv', 
-# '/home/nuria/phd/controllable_agent/results_clus/quadruped/5/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/0/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/9/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/2/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/4/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/7/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/3/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/quadruped/8/eval.csv']

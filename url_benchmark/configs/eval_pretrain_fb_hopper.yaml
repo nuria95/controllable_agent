@@ -7,16 +7,14 @@ defaults:
 
 task: hopper_hop
 goal_space: simplified_hopper
-custom_reward: hopper_hop
 append_goal_to_observation: True
 uncertainty: True
-eval_every_frames: 10000
+eval_every_frames: 100000
 use_wandb: false
-warmup: false
 seed: 10
 experiment: test_hopper
 discount: 0.98
-num_train_frames: 2000010
+num_train_frames: 1000010
 replay_buffer_episodes: 1000
 
 agent:
@@ -25,7 +23,7 @@ agent:
   num_inference_steps: 10000
   myopic: true
   sampling: true
-num_eval_episodes: 1
+num_eval_episodes: 30
 eval: true
 load_model: /home/nuria/phd/controllable_agent/fbee_cluster/hopper/15/models/latest.pt
 save_video: true

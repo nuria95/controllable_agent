@@ -24,6 +24,10 @@ EpisodeTuple = tp.Tuple[np.ndarray, ...]
 Episode = tp.Dict[str, np.ndarray]
 T = tp.TypeVar("T", np.ndarray, torch.Tensor)
 
+""" 
+Code from  https://github.com/facebookresearch/controllable_agent
+"""
+
 
 def episode_len(episode: Episode) -> int:
     # subtract -1 because the dummy first transition
@@ -69,13 +73,15 @@ class ReplayBuffer:
         self._discount = discount
         assert 0 <= future <= 1
         self._future = future
-        self._current_episode: tp.Dict[str, tp.List[np.ndarray]] = collections.defaultdict(list)
+        self._current_episode: tp.Dict[str,
+                                       tp.List[np.ndarray]] = collections.defaultdict(list)
         self._idx = 0
         self._full = False
         # self._num_transitions = 0
         self._storage: tp.Dict[str, np.ndarray] = collections.defaultdict()
         self._collected_episodes = 0
-        self._batch_names = set(field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
+        self._batch_names = set(
+            field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
         self._episodes_length = np.zeros(max_episodes, dtype=np.int32)
         self._episodes_selection_probability = None
         self._is_fixed_episode_length = True
@@ -90,9 +96,11 @@ class ReplayBuffer:
 
     def _backward_compatibility(self):
         if self._storage and not hasattr(self, '_episodes_length'):
-            self._episodes_length = np.array([len(array) - 1 for array in self._storage["discount"]], dtype=np.int32)
+            self._episodes_length = np.array(
+                [len(array) - 1 for array in self._storage["discount"]], dtype=np.int32)
             self._episodes_length[len(self):] = 0
-            assert self._episodes_length[:len(self)].min() == self._episodes_length[:len(self)].max()
+            assert self._episodes_length[:len(self)].min(
+            ) == self._episodes_length[:len(self)].max()
             self._episodes_selection_probability = None
             self._is_fixed_episode_length = True
             self._max_episode_length = None
@@ -106,10 +114,12 @@ class ReplayBuffer:
             if np.isscalar(value):
                 value = np.full((1,), value, dtype=dtype)
             if isinstance(value, np.ndarray):
-                self._current_episode[field.name].append(np.array(value, dtype=dtype))
+                self._current_episode[field.name].append(
+                    np.array(value, dtype=dtype))
         if time_step.last():
             if not hasattr(self, "_batch_names"):
-                self._batch_names = set(field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
+                self._batch_names = set(
+                    field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
             for name, value_list in self._current_episode.items():
                 values = np.array(value_list, dtype)
                 if name not in self._storage:
@@ -117,9 +127,12 @@ class ReplayBuffer:
                     _shape = values.shape
                     if self._max_episode_length is not None:
                         _shape = (self._max_episode_length,) + _shape[1:]
-                    self._storage[name] = np.empty((self._max_episodes,) + _shape, dtype=dtype)
+                    self._storage[name] = np.empty(
+                        (self._max_episodes,) + _shape, dtype=dtype)
                 self._storage[name][self._idx][:len(values)] = values
-            self._episodes_length[self._idx] = len(self._current_episode['discount']) - 1  # compensate for the dummy transition at the beginning
+            # compensate for the dummy transition at the beginning
+            self._episodes_length[self._idx] = len(
+                self._current_episode['discount']) - 1
             if self._episodes_length[self._idx] != self._episodes_length[self._idx - 1] and self._episodes_length[self._idx - 1] != 0:
                 self._is_fixed_episode_length = False
             self._current_episode = collections.defaultdict(list)
@@ -134,7 +147,8 @@ class ReplayBuffer:
 
     def sample(self, batch_size, custom_reward: tp.Optional[tp.Any] = None, with_physics: bool = False) -> EpisodeBatch:
         if not hasattr(self, "_batch_names"):
-            self._batch_names = set(field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
+            self._batch_names = set(
+                field.name for field in dataclasses.fields(ExtendedGoalTimeStep))
         if not isinstance(self._future, float):
             assert isinstance(self._future, bool)
             self._future = float(self._future)
@@ -143,8 +157,10 @@ class ReplayBuffer:
             ep_idx = np.random.randint(0, len(self), size=batch_size)
         else:
             if self._episodes_selection_probability is None:
-                self._episodes_selection_probability = self._episodes_length / self._episodes_length.sum()
-            ep_idx = np.random.choice(np.arange(len(self._episodes_length)), size=batch_size, p=self._episodes_selection_probability)
+                self._episodes_selection_probability = self._episodes_length / \
+                    self._episodes_length.sum()
+            ep_idx = np.random.choice(np.arange(len(
+                self._episodes_length)), size=batch_size, p=self._episodes_selection_probability)
 
         eps_lengths = self._episodes_length[ep_idx]
         # add +1 for the first dummy transition
@@ -152,16 +168,19 @@ class ReplayBuffer:
         assert (step_idx <= eps_lengths).all()
         if self._future < 1:
             # future_idx = step_idx + np.random.randint(0, self.episode_length - step_idx + 1, size=self._batch_size)
-            future_idx = step_idx + np.random.geometric(p=(1 - self._future), size=batch_size)
+            future_idx = step_idx + \
+                np.random.geometric(p=(1 - self._future), size=batch_size)
             future_idx = np.clip(future_idx, 0, eps_lengths)
             assert (future_idx <= eps_lengths).all()
-        meta = {name: data[ep_idx, step_idx - 1] for name, data in self._storage.items() if name not in self._batch_names}
+        meta = {name: data[ep_idx, step_idx - 1] for name,
+                data in self._storage.items() if name not in self._batch_names}
         obs = self._storage['observation'][ep_idx, step_idx - 1]
         action = self._storage['action'][ep_idx, step_idx]
         next_obs = self._storage['observation'][ep_idx, step_idx]
         phy = self._storage['physics'][ep_idx, step_idx]
         if custom_reward is not None:
-            reward = np.array([[custom_reward.from_physics(p)] for p in phy], dtype=np.float32)
+            reward = np.array([[custom_reward.from_physics(p)]
+                              for p in phy], dtype=np.float32)
         else:
             reward = self._storage['reward'][ep_idx, step_idx]
         discount = self._discount * self._storage['discount'][ep_idx, step_idx]
@@ -187,29 +206,36 @@ class ReplayBuffer:
 
     def load(self, env: tp.Any, replay_dir: Path, relabel: bool = True, goal_func: tp.Any = None, append_goal_to_observation: bool = False) -> None:
         eps_fns = sorted(replay_dir.glob('*.npz'))
-        assert len(eps_fns) >= self._max_episodes, f'There is not enough episodes in directory: current {len(eps_fns)} vs desired {self._max_episodes}'
+        assert len(
+            eps_fns) >= self._max_episodes, f'There is not enough episodes in directory: current {len(eps_fns)} vs desired {self._max_episodes}'
         for eps_fn in tqdm(eps_fns):
             if self._full:
                 break
             episode = load_episode(eps_fn)
             if relabel:
-                episode = relabel_episode(env, episode, goal_func, append_goal_to_observation)
+                episode = relabel_episode(
+                    env, episode, goal_func, append_goal_to_observation)
             # for field in dataclasses.fields(TimeStep):
             for name, values in episode.items():
                 # values = episode[field.name]
                 if name not in self._storage:
                     # first iteration, the buffer is created with appropriate size
-                    self._storage[name] = np.empty((self._max_episodes,) + values.shape, dtype=np.float32)
-                self._storage[name][self._idx] = np.array(values, dtype=np.float32)
+                    self._storage[name] = np.empty(
+                        (self._max_episodes,) + values.shape, dtype=np.float32)
+                self._storage[name][self._idx] = np.array(
+                    values, dtype=np.float32)
             self._idx = (self._idx + 1) % self._max_episodes
             self._full = self._full or self._idx == 0
-        print('Final size of buffer', len(self), 'vs desired size', self._max_episodes)
-        assert len(self) == self._max_episodes, f'Mismatch between replay buffer size and desired one {len(self)} vs {self._max_episodes}'
+        print('Final size of buffer', len(self),
+              'vs desired size', self._max_episodes)
+        assert len(
+            self) == self._max_episodes, f'Mismatch between replay buffer size and desired one {len(self)} vs {self._max_episodes}'
 
     def relabel(self, custom_reward) -> None:
 
         for (ep_idx, phy) in tqdm(enumerate(self._storage["physics"])):
-            reward = np.array([[custom_reward.from_physics(p)] for p in phy], dtype=np.float32)
+            reward = np.array([[custom_reward.from_physics(p)]
+                              for p in phy], dtype=np.float32)
             self._storage["reward"][ep_idx] = reward
         self._max_episodes = len(self._storage["physics"])
         self._full = True
@@ -222,7 +248,8 @@ class ReplayBuffer:
             _shape = values.shape
             if self._max_episode_length:
                 _shape = (self._max_episode_length,) + values.shape[1:]
-            self._storage[name] = np.empty((self._max_episodes,) + _shape, dtype=dtype)
+            self._storage[name] = np.empty(
+                (self._max_episodes,) + _shape, dtype=dtype)
             self._storage[name][:len(values)] = values
 
     def resize(self) -> None:
@@ -232,6 +259,7 @@ class ReplayBuffer:
         augmented_storage = collections.defaultdict()
         for name, values in self._storage.items():
             _shape = values.shape[1:]
-            augmented_storage[name] = np.empty((to_increase,) + _shape, dtype=dtype)
-            self._storage[name] = np.concatenate((self._storage[name], augmented_storage[name]), axis=0)
-        
+            augmented_storage[name] = np.empty(
+                (to_increase,) + _shape, dtype=dtype)
+            self._storage[name] = np.concatenate(
+                (self._storage[name], augmented_storage[name]), axis=0)
