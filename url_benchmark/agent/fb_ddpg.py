@@ -88,6 +88,7 @@ class FBDDPGAgentConfig:
     rnd_coeff: float = 0.5
     rnd: bool = False
     rnd_embed_dim: int = 100
+    f_uncertainty: bool = False
 
 
 cs = ConfigStore.instance()
@@ -327,7 +328,20 @@ class FBDDPGAgent:
                 acts = self.actor(h, z, std=1.).mean  # num_zs x act_dim take the mean, although querying with std 0 anyways
                 F1, F2 = self.forward_net((obs, z, acts))  # ensemble_size x num_zs x z_dim
                 Q1, Q2 = [torch.einsum('esd, ...sd -> es', Fi, z) for Fi in [F1, F2]]  # ensemble_size x num_zs
-            epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+            
+            if self.cfg.f_uncertainty:
+                eF1 = []
+                for i in range(num_zs):
+                    F11 = F1[:, i, :].squeeze().to(torch.float64)
+                    F11 = F11.transpose(1, 0)  # d x ensemble_size
+                    cov_F1 = torch.cov(F11)
+                    epistemic_F1 = torch.trace(cov_F1)
+                    eF1.append(epistemic_F1)
+                epistemic_std1 = torch.tensor(eF1)  # num_zs, naming it for consistency (but its trace of F1)
+            
+            else:
+                epistemic_std1, epistemic_std2 = Q1.std(dim=0), Q2.std(dim=0)  # num_zs # TODO only using epistemic_std1
+
             idxs = torch.argmax(epistemic_std1, dim=0)
             uncertain_z = z[idxs].cpu().numpy()  # take the z with the highest epistemic uncertainty
             meta['z'] = uncertain_z
@@ -413,7 +427,6 @@ class FBDDPGAgent:
         metrics.update({f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1.mean(dim=0))} if self.Q1.dim() > 1 else {f'Qroom{i+1}': q.item() for i, q in enumerate(self.Q1)})   
         return metrics
 
-
     def compute_disagreement_metrics_new(self) -> float:
         with torch.no_grad():
             bs = len(self.eval_states)
@@ -428,15 +441,15 @@ class FBDDPGAgent:
                 F11 = F1[:,i,:].squeeze().to(torch.float64)
                 F11 = F11.transpose(1,0) # d x ensemble_size
                 cov_F1 = torch.cov(F11)
-                epistemic_F1 = torch.linalg.det(cov_F1)
+                # epistemic_F1 = torch.linalg.det(cov_F1  + torch.eye(F11.shape[0], device=F11.device) * 1e-4)
                 # eigenvals = torch.linalg.eigvals(cov_F1)
                 # print(len(eigenvals), eigenvals)
-                # epistemic_F1 = torch.trace(cov_F1)
+                epistemic_F1 = torch.trace(cov_F1)
                 eF1.append(epistemic_F1)
                 
             self.Q1, _= [torch.einsum('esd, ...sd -> es', Fi, self.eval_zs) for Fi in [F1, F2]]  # ensemble_size x (num_zs x eval_states)
             
-            epistemic_q1 = self.Q1.std(dim=0)
+            epistemic_q1 = self.Q1.std(dim=0)  # var? 
             ef = torch.tensor(eF1).reshape(-1, bs).mean(-1)
             eq = epistemic_q1.reshape(-1, bs).mean(-1)
 
@@ -465,7 +478,7 @@ class FBDDPGAgent:
                 next_action = dist.sample(clip=self.cfg.stddev_clip)
             # target_F1, target_F2 = torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0'), torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0') #self.forward_target_net((next_obs, z, next_action))  # batch x z_dim
             target_F1, target_F2 = self.forward_target_net((next_obs, z, next_action))  # e? x batch x z_dim
-            target_B = self.backward_target_net(goal)  # batch x z_dim
+            target_B = self.backward_target_net(goal)  # batch x z_dim  # TODO change to next_goal for fb_diag to make sense
             if not self.cfg.uncertainty:
                 target_M1 = torch.einsum('sd, td -> st', target_F1, target_B)  # batch x batch
                 target_M2 = torch.einsum('sd, td -> st', target_F2, target_B)  # batch x batch
@@ -476,7 +489,7 @@ class FBDDPGAgent:
         # TODO Should I sample different batches for every different F ensemble?
         # compute FB loss
         # F1, F2 = torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0'), torch.ones((self.n_ensemble, 1024, 50), device = 'cuda:0') #self.forward_net((obs, z, action))  # batch x z_dim
-        F1, F2 = self.forward_net((obs, z, action))  # batch x z_dim
+        F1, F2 = self.forward_net((obs, z, action))  # batch x z_dim  # TODO change to next_goal for fb_diag to make sense
         B = self.backward_net(goal)  # batch x z_dim
         if not self.cfg.uncertainty:
             M1 = torch.einsum('sd, td -> st', F1, B)  # batch x batch
