@@ -15,6 +15,12 @@ from torch import nn
 import torch.nn.functional as F
 from torch import distributions as pyd
 from torch.distributions.utils import _standard_normal
+
+
+""" 
+Code from  https://github.com/facebookresearch/controllable_agent
+"""
+
 try:
     from typing import Protocol
 except ImportError:
@@ -53,14 +59,6 @@ def set_seed_everywhere(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
-
-
-X = tp.TypeVar("X")
-
-
-def chain(*iterables: tp.Iterable[X]) -> tp.Iterator[X]:  # TODO remove
-    for it in iterables:
-        yield from it
 
 
 def soft_update_params(net, target_net, tau) -> None:
@@ -261,41 +259,6 @@ def schedule(schdl, step) -> float:
                 mix = np.clip((step - duration1) / duration2, 0.0, 1.0)
                 return (1.0 - mix) * final1 + mix * final2
     raise NotImplementedError(schdl)
-
-
-class RandomShiftsAug(nn.Module):
-    def __init__(self, pad) -> None:
-        super().__init__()
-        self.pad = pad
-
-    def forward(self, x) -> torch.Tensor:
-        x = x.float()
-        n, _, h, w = x.size()
-        assert h == w
-        padding = tuple([self.pad] * 4)
-        x = F.pad(x, padding, 'replicate')
-        eps = 1.0 / (h + 2 * self.pad)
-        arange = torch.linspace(-1.0 + eps,
-                                1.0 - eps,
-                                h + 2 * self.pad,
-                                device=x.device,
-                                dtype=x.dtype)[:h]
-        arange = arange.unsqueeze(0).repeat(h, 1).unsqueeze(2)
-        base_grid = torch.cat([arange, arange.transpose(1, 0)], dim=2)
-        base_grid = base_grid.unsqueeze(0).repeat(n, 1, 1, 1)
-
-        shift = torch.randint(0,
-                              2 * self.pad + 1,
-                              size=(n, 1, 1, 2),
-                              device=x.device,
-                              dtype=x.dtype)
-        shift *= 2.0 / (h + 2 * self.pad)
-
-        grid = base_grid + shift
-        return F.grid_sample(x,
-                             grid,
-                             padding_mode='zeros',
-                             align_corners=False)
 
 
 class FloatStats:

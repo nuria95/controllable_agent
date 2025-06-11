@@ -293,7 +293,6 @@ def make(
         raise UnsupportedPlatform("Mac platform is not supported")
 
     make_fn = _make_dmc
-    # TODO fix this when it fails (signatures differ)
     env = make_fn(obs_type, domain, task, frame_stack, action_repeat, seed,
                   goal_space=goal_space, append_goal_to_observation=append_goal_to_observation)  # type: ignore
 

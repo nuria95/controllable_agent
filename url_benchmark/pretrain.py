@@ -308,7 +308,7 @@ class BaseWorkspace(tp.Generic[C]):
         if task is not None:
             self.domain_tasks = {self.domain: ['_'.join(task.split('_')[1:])]}
         # Test if enough data to compute meta from samples, otw quit already!
-        # TODO Assuming fix episode length:
+        # TODO Assuming fix episode length for now.
         num_steps = self.cfg.agent.num_inference_steps  # type: ignore
         if len(self.replay_loader) * self.replay_loader._episodes_length[0] < num_steps:
             # print("Not enough data for inference, skipping eval")

@@ -93,8 +93,6 @@ class Actor(nn.Module):
 
         self.policy = mlp(feature_dim, hidden_dim, "irelu", self.action_dim)
         self.apply(utils.weight_init)
-        # initialize the last layer by zero
-        # self.policy[-1].weight.data.fill_(0.0)
 
     def forward(self, obs, z, std):
         assert z.shape[-1] == self.z_dim
@@ -143,25 +141,16 @@ class EnsembleMLP(nn.Module):
         # weight of shape ``[10, 784, 128]``.
         # PyTorch offers the ``torch.func.stack_module_state`` convenience function to do
         # this: # --> go from list of dicts to dict of lists
-        #  stacked parameters are optimizable (i.e. they are new leaf nodes in the
-        # autograd history that are UNRELATED to the original parameters and can be passed
-        # directly to an optimizer).
+        #  stacked parameters are optimizable
         #  buffers accounts for all non_trainable_params, we wont need it
         self.ensemble_params, buffers = torch.func.stack_module_state(ensemble)
         # Construct a "stateless" version of one of the models. It is "stateless" in
         # the sense that the parameters are meta Tensors and do not have storage, we do this by to."meta"
         # we also assign base_model as tuple  to avoid copying the parameters (avoid registration), otw, EnsembleMLP
-        # object, will also have self.base_model params, additionally to the self.ensemble_params above.
-
-        # TODO: Didnt' we need base_model to be a tuple?
-        # self.base_model = (deepcopy(ensemble[0]).to("meta"),)  # used as a fct
-
+        # object, will also have self.base_model params, additionally to the self.ensemble_params above
         base_model = deepcopy(ensemble[0])
         self.base_model = base_model.to('meta')
-        # self.device = base_model.device
-        # self.to(self.device)
 
-    # # IMPORTANT! model.parameters() of an nn.Module class calls named_parameters we need to override it
     def named_parameters(
         self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
     ):
