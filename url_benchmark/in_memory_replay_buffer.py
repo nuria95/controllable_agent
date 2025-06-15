@@ -199,7 +199,6 @@ class ReplayBuffer:
         additional = {}
         if with_physics:
             additional["_physics"] = phy
-        # TODO remove type ignore when working
         return EpisodeBatch(obs=obs, goal=goal, action=action, reward=reward, discount=discount,
                             next_obs=next_obs, next_goal=next_goal,
                             future_obs=future_obs, future_goal=future_goal, meta=meta, **additional)
@@ -240,7 +239,7 @@ class ReplayBuffer:
         self._max_episodes = len(self._storage["physics"])
         self._full = True
 
-    def prefill(self, storage) -> None:  # TODO: fix this. Out of RAM Issues
+    def prefill(self, storage) -> None:
         dtype = np.float32
         # Create storage with desired size and prefilled with storage values
         self._storage: tp.Dict[str, np.ndarray] = collections.defaultdict()

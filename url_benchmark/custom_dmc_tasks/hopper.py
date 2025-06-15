@@ -18,12 +18,6 @@
 # limitations under the License.
 # ============================================================================
 
-"""
-Code from  https://github.com/facebookresearch/controllable_agent
-"""
-
-"""Hopper domain."""
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -42,6 +36,14 @@ from dm_control.suite.utils import randomizers
 from dm_control.utils import containers
 from dm_control.utils import rewards
 from dm_control.utils import io as resources
+
+
+"""
+Code from  https://github.com/facebookresearch/controllable_agent
+"""
+
+"""Hopper Domain."""
+
 
 _CONTROL_TIMESTEP: float
 _DEFAULT_TIME_LIMIT: int

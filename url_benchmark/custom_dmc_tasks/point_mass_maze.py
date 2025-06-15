@@ -18,9 +18,6 @@
 # limitations under the License.
 # ============================================================================
 
-"""
-Code from  https://github.com/facebookresearch/controllable_agent
-"""
 
 """Point-mass domain."""
 
@@ -41,6 +38,11 @@ from dm_control.utils import io as resources
 from dm_env import specs
 import numpy as np
 import os
+
+
+"""
+Code from  https://github.com/facebookresearch/controllable_agent
+"""
 
 _DEFAULT_TIME_LIMIT = 20
 SUITE = containers.TaggedTasks()

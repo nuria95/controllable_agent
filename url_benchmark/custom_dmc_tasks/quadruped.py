@@ -39,8 +39,6 @@ from dm_control.utils import rewards
 from dm_control.utils import xml_tools
 from lxml import etree
 import numpy as np
-from scipy import ndimage
-
 
 enums = mjbindings.enums
 mjlib = mjbindings.mjlib
