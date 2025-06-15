@@ -25,20 +25,8 @@ num_eval_episodes: 10
 eval: true
 save_video: true
 
-# load_model: /home/nuria/phd/controllable_agent/fbee_cluster/online_fb_cheetah_alltasks/4/models/latest.pt
-load_model: /home/nuria/phd/controllable_agent/fbee_cluster/cheetah2/14/models/latest.pt
+load_model: /home/nuria/phd/controllable_agent/results_clus_models/results_clus/cheetah2/14/models/latest.pt
 
 hydra:
   run:
     dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
-  sweep:
-    dir: ./exp_paper/${now:%Y.%m.%d}_${task}/${now:%H%M%S}_${agent.name}_${task}_${experiment}
-    subdir: ${hydra.job.num}
-
-
-
-# our models:
-# ['/home/nuria/phd/controllable_agent/results_clus/cheetah2/16/eval.csv', 
-# '/home/nuria/phd/controllable_agent/results_clus/cheetah2/14/eval.csv',
-# '/home/nuria/phd/controllable_agent/results_clus/cheetah2/18/eval.csv',
-# '/home/nuria/phd/controllable_agent/results_clus/cheetah2/11/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/12/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/13/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/17/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/15/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/10/eval.csv', '/home/nuria/phd/controllable_agent/results_clus/cheetah2/19/eval.csv']
